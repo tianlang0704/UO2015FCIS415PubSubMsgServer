@@ -12,7 +12,7 @@ bool ParseHeader(FILE *pInFile)
 	unsigned char ucN = 0;
 
 	if (!fread(&chType, 1, 1, pInFile))
-		m_dtType = DT_ERROR;
+		return false;
 	switch (chType)
 	{
 	case 'n':
@@ -118,13 +118,13 @@ bool DecodeStr(FILE *pInFile, FILE *pOutFile)
 
 int main(int argc, char **argv )
 {
-	FILE *pInFile = fopen(argv[0], "rb");
+	FILE *pInFile = fopen(argv[1], "rb");
 	if (!pInFile)
 	{
 		fprintf(stderr, "Input error: failed opening the input file.\n");
 		return 1;
 	}
-	FILE *pOutFile = fopen(argv[1], "rw");
+	FILE *pOutFile = fopen(argv[2], "wb");
 	if (!pOutFile)
 	{
 		fprintf(stderr, "Input error: failed creating the output file.\n");
@@ -156,5 +156,6 @@ int main(int argc, char **argv )
 
 	fclose(pInFile);
 	fclose(pOutFile);
+	system("pause");
 	return 0;
 }
