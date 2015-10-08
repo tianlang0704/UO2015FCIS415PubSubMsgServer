@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-//typedef enum { false, true } bool;
+typedef enum { false, true } bool;
 typedef enum {DT_INT, DT_DOUBLE, DT_STR, DT_N, DT_ERROR} DecodeType;
 
 DecodeType m_dtType;
@@ -57,7 +57,8 @@ bool ParseHeader(FILE *pInFile)
 bool DecodeInt(FILE *pInFile, FILE *pOutFile)
 {
 	int iBuffer;
-	for (int i = 0; i < m_iN; i++)
+	int i;
+	for (i = 0; i < m_iN; i++)
 	{
 		if (!fread(&iBuffer, 4, 1, pInFile))
 		{
@@ -73,7 +74,8 @@ bool DecodeInt(FILE *pInFile, FILE *pOutFile)
 bool DecodeDouble(FILE *pInFile, FILE *pOutFile)
 {
 	double dBuffer;
-	for (int i = 0; i < m_iN; i++)
+	int i;
+	for (i = 0; i < m_iN; i++)
 	{
 		if (!fread(&dBuffer, 8, 1, pInFile))
 		{
@@ -92,7 +94,8 @@ bool DecodeStr(FILE *pInFile, FILE *pOutFile)
 	unsigned char ucStrSize;
 	int iStrSize;
 
-	for (int i = 0; i < m_iN; i++)
+	int i;
+	for (i = 0; i < m_iN; i++)
 	{
 		if (!fread(&ucStrSize, 1, 1, pInFile))
 		{
