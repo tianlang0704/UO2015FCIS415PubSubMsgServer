@@ -118,16 +118,16 @@ bool DecodeStr(FILE *pInFile, FILE *pOutFile)
 
 int main(int argc, char **argv )
 {
-	FILE *pInFile = fopen(argv[1], "rb");
+	FILE *pInFile = fopen(argv[0], "rb");
 	if (!pInFile)
 	{
-		fprintf(stderr, "Input error: failed opening input file.\n");
+		fprintf(stderr, "Input error: failed opening the input file.\n");
 		return 1;
 	}
-	FILE *pOutFile = fopen(argv[2], "rw");
+	FILE *pOutFile = fopen(argv[1], "rw");
 	if (!pOutFile)
 	{
-		fprintf(stderr, "Input error: failed creating output file.\n");
+		fprintf(stderr, "Input error: failed creating the output file.\n");
 		return 1;
 	}
 
