@@ -157,6 +157,5 @@ int main(int argc, char **argv )
 
 	fclose(pInFile);
 	fclose(pOutFile);
-	system("pause");
 	return 0;
 }
