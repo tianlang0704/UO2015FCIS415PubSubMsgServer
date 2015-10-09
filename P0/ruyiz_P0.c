@@ -12,7 +12,7 @@ bool ParseHeader(FILE *pInFile)
 	unsigned char ucN = 0;
 
 	if (!fread(&chType, 1, 1, pInFile))
-		return false;
+		return false;  
 	switch (chType)
 	{
 	case 'n':
@@ -148,6 +148,7 @@ int main(int argc, char **argv )
 			DecodeStr(pInFile, pOutFile);
 			break;
 		case DT_N:
+			fseek(pOutFile, -1, SEEK_CUR);
 			fprintf(pOutFile, "\n");
 		default:
 			break;
@@ -156,5 +157,6 @@ int main(int argc, char **argv )
 
 	fclose(pInFile);
 	fclose(pOutFile);
+	system("pause");
 	return 0;
 }
