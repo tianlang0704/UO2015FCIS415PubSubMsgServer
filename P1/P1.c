@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <signal.h>
 
 int m_PCount = 0;
 pid_t m_PidList[255];
@@ -45,7 +46,7 @@ int StartP(const char* filePath)
 		pchArgList[0] = malloc((strlen(chPNameBuffer) + 1) * sizeof(char));
 		strcpy(pchArgList[0], chPNameBuffer);
 
-		printf("Program: %s........\n", chPNameBuffer);
+		printf("Program: %s\n", chPNameBuffer);
 		
 		//Get argument list
 		while(fgetc(fIn) != '\n' && !feof(fIn))
@@ -89,12 +90,28 @@ int StartP(const char* filePath)
 		m_PidList[m_PCount] = fork();	
 		if(m_PidList[m_PCount] < 0)
 			perror("Failed forking");
-		
+	
 		if(m_PidList[m_PCount] == 0)
 		{
+			perror("start waiting for signal.");
+			int iSig;
+			sigset_t sigset;
+			sigemptyset(&sigset);
+			sigaddset(&sigset, SIGUSR1);
+			sigprocmask(SIG_BLOCK, &sigset, NULL);
+			if(sigwait(&sigset, &iSig))
+				perror("Failed sigwait");
+			perror("Signal reived.");
+
 			if(execvp(chPNameBuffer, pchArgList) < 0)
+			{
 				perror("Failed running program");
-			_exit(0);
+				_exit(1);
+			}
+			else
+			{
+				_exit(0);
+			}
 		}
 
 		m_PCount++;
@@ -102,8 +119,6 @@ int StartP(const char* filePath)
 		int j;
 		for(j = 0; j < lArgN; j++)
 			free(pchArgList[j]);
-
-		usleep(100000);
 	}
 
 	fclose(fIn);
@@ -117,12 +132,29 @@ int main(int argc, const char* argv[])
 {
 	StartP(argv[1]);
 
-	int i, status;
+	printf("Sending SIGUSR1 to programs\n");
+	int i;
+	for(i = 0; i < m_PCount; i++)
+		if(kill(m_PidList[i], SIGUSR1) < 0)
+			perror("Failed sending SIGUSR1");
+	usleep(50000);
+
+	printf("Sending SIGSTOP to programs\n");
+	for(i = 0; i < m_PCount; i++)
+		if(kill(m_PidList[i], SIGSTOP) < 0)
+			perror("Failed sending SIGSTOP");
+	usleep(5000000);
+	
+	printf("Sending SIGCONT to programs\n");
+	for(i = 0; i < m_PCount; i++)
+		if(kill(m_PidList[i], SIGCONT) < 0)
+			perror("Failed sending SIGCONT");
+
+	int iStatus;
 	for(i = 0; i < m_PCount; i++)
 	{
 		printf("main waiting: %d\n", i);
-		waitpid(m_PidList[i], &status, 0);
-
+		waitpid(m_PidList[i], &iStatus, 0);
 	}
 	return 0;
 }
