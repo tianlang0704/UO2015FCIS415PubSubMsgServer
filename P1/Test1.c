@@ -6,11 +6,12 @@
 int main(int argc, const char* argv[])
 {
 	
-	int i, iCounter = atoi(argv[1]);
+	int i, iCounter = atoi(argv[1]), 
+	    pid = getpid(), iInter = atoi(argv[2]);
 	for(i = 0; i < iCounter; i++)
 	{
-		printf("%d\n", i);
-		usleep(10000);
+		printf("Pid:%d, %d\n", pid, i);
+		usleep(iInter);
 
 	}
 	return 0;
