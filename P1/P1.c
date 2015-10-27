@@ -6,8 +6,33 @@
 #include <sys/wait.h>
 #include <signal.h>
 
+typedef enum {P_RUNNING, P_TERMINATED} P_Status;
+
+typedef struct
+{
+	P_Status sta;
+	pid_t pid;
+	long time;
+} PidTimePair;
+
 int m_PCount = 0;
-pid_t m_PidList[255];
+PidTimePair m_PList[255];
+
+int WaitForSignal(int iSignal)
+{
+	int iSigNum;
+	sigset_t sigset;
+	sigemptyset(&sigset);
+	sigaddset(&sigset, iSignal);
+	sigprocmask(SIG_BLOCK, &sigset, NULL);
+	if(sigwait(&sigset, &iSigNum))
+	{
+		perror("Failed sigwait");
+		return 1;
+	}
+
+	return 0;
+}
 
 void SkipNewLine(FILE *file)
 {
@@ -27,14 +52,14 @@ void SkipWhiteSpace(FILE *file)
 		fseek(file, -1, SEEK_CUR);
 }
 
-int StartP(const char* filePath)
+int StartP(const char* filePath, PidTimePair *PList,int *PCount)
 {
 	char chPNameBuffer[255];
 	FILE* fIn = fopen(filePath, "rb");
-	if(!fIn) perror("Failed opening file.");
-	
+	if(!fIn) perror("Failed opening file.");	
 	int iArgMax = 10;
 	char **pchArgList = malloc(iArgMax * sizeof(void*));
+	(*PCount) = 0;
 
 	while(!feof(fIn))
 	{
@@ -58,12 +83,9 @@ int StartP(const char* filePath)
 			//+1 saving space for NULL termination
 			if(lArgN + 1 >= iArgMax)
 			{
-				int iOldMax = iArgMax;
-				char **pchOldList = pchArgList;
 				iArgMax *= 2;
-				pchArgList = malloc(iArgMax * sizeof(void*));
-				memcpy(pchArgList, pchOldList, iOldMax);
-				free(pchOldList);
+				pchArgList = realloc(pchArgList, 
+						iArgMax * sizeof(char*));
 			}
 
 			//Find out current argument size
@@ -79,7 +101,6 @@ int StartP(const char* filePath)
 			pchArgList[lArgN][lArgSize] = 0;
 			
 			SkipWhiteSpace(fIn);
-
 			lArgN++;
 		}
 		SkipWhiteSpace(fIn);
@@ -87,20 +108,14 @@ int StartP(const char* filePath)
 		pchArgList[lArgN] = NULL;
 
 		//Add to list and start running program	
-		m_PidList[m_PCount] = fork();	
-		if(m_PidList[m_PCount] < 0)
+		PList[*PCount].pid = fork();	
+		if(PList[*PCount].pid < 0)
 			perror("Failed forking");
 	
-		if(m_PidList[m_PCount] == 0)
+		if(PList[*PCount].pid == 0)
 		{
 			perror("start waiting for signal.");
-			int iSig;
-			sigset_t sigset;
-			sigemptyset(&sigset);
-			sigaddset(&sigset, SIGUSR1);
-			sigprocmask(SIG_BLOCK, &sigset, NULL);
-			if(sigwait(&sigset, &iSig))
-				perror("Failed sigwait");
+			WaitForSignal(SIGCONT);
 			perror("Signal reived.");
 
 			if(execvp(chPNameBuffer, pchArgList) < 0)
@@ -114,11 +129,13 @@ int StartP(const char* filePath)
 			}
 		}
 
-		m_PCount++;
+		(*PCount)++;
 
 		int j;
 		for(j = 0; j < lArgN; j++)
 			free(pchArgList[j]);
+
+		usleep(100000);
 	}
 
 	fclose(fIn);
@@ -127,34 +144,57 @@ int StartP(const char* filePath)
 	return 0;
 }
 
+int CheckRunning(PidTimePair *PList, int PCount)
+{
+	int i, result = 0;
+	for(i = 0; i < PCount; i++)
+	{
+		waitpid(-1, NULL, WNOHANG);
+		if(PList[i].sta == P_RUNNING && kill(PList[i].pid, 0) < 0)
+			PList[i].sta = P_TERMINATED;
+		//**Should check errno too
+		if(result == 0 && PList[i].sta == P_RUNNING)
+			result = 1;
+	}
+
+	return result;
+}
+
+void Reschedule(PidTimePair *Target)
+{
+	Target->time = 30000;
+}
+
+void Run(PidTimePair *PList, int PCount)
+{
+	int PIndex = 0, i;
+
+	for(i = 0; i < PCount; i++)
+		PList[i].sta = P_RUNNING;
+
+	while(CheckRunning(PList, PCount))
+	{
+		if(PList[PIndex].sta == P_RUNNING)
+		{
+			Reschedule(&PList[PIndex]);
+			if(kill(PList[PIndex].pid, SIGCONT) < 0)
+				perror("Failed sending SIGCONT");
+			ualarm(PList[PIndex].time, 0);
+			WaitForSignal(SIGALRM);
+			if(kill(PList[PIndex].pid, SIGSTOP) < 0)
+				perror("Failed sending SIGSTOP");
+		}
+	
+		PIndex++;
+		PIndex %= PCount;
+	}
+}
 
 int main(int argc, const char* argv[])
 {
-	StartP(argv[1]);
+	StartP(argv[1], m_PList, &m_PCount);
 
-	printf("Sending SIGUSR1 to programs\n");
-	int i;
-	for(i = 0; i < m_PCount; i++)
-		if(kill(m_PidList[i], SIGUSR1) < 0)
-			perror("Failed sending SIGUSR1");
-	usleep(50000);
+	Run(m_PList, m_PCount);
 
-	printf("Sending SIGSTOP to programs\n");
-	for(i = 0; i < m_PCount; i++)
-		if(kill(m_PidList[i], SIGSTOP) < 0)
-			perror("Failed sending SIGSTOP");
-	usleep(5000000);
-	
-	printf("Sending SIGCONT to programs\n");
-	for(i = 0; i < m_PCount; i++)
-		if(kill(m_PidList[i], SIGCONT) < 0)
-			perror("Failed sending SIGCONT");
-
-	int iStatus;
-	for(i = 0; i < m_PCount; i++)
-	{
-		printf("main waiting: %d\n", i);
-		waitpid(m_PidList[i], &iStatus, 0);
-	}
 	return 0;
 }
