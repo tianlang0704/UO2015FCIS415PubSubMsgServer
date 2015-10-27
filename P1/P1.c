@@ -165,7 +165,7 @@ void Reschedule(PidTimePair *Target)
 	Target->time = 30000;
 }
 
-void Run(PidTimePair *PList, int PCount)
+void RunP(PidTimePair *PList, int PCount)
 {
 	int PIndex = 0, i;
 
@@ -194,7 +194,7 @@ int main(int argc, const char* argv[])
 {
 	StartP(argv[1], m_PList, &m_PCount);
 
-	Run(m_PList, m_PCount);
+	RunP(m_PList, m_PCount);
 
 	return 0;
 }
