@@ -8,7 +8,6 @@
 int m_PCount = 0;
 pid_t m_PidList[255];
 
-
 void SkipNewLine(FILE *file)
 {
 	//Skip White space
@@ -38,15 +37,16 @@ int StartP(const char* filePath)
 
 	while(!feof(fIn))
 	{
-		long lPosI, lPosA, lArgSize, lArgN = 0;
+		long lPosI, lPosA, lArgSize, lArgN = 1;
 		
 		//Get program name
 		fscanf(fIn, "%s", chPNameBuffer);
 		SkipWhiteSpace(fIn);	
+		pchArgList[0] = malloc((strlen(chPNameBuffer) + 1) * sizeof(char));
+		strcpy(pchArgList[0], chPNameBuffer);
 
-
-		printf("Program Name: %s........\n", chPNameBuffer);
-
+		printf("Program: %s........\n", chPNameBuffer);
+		
 		//Get argument list
 		while(fgetc(fIn) != '\n' && !feof(fIn))
 		{	
@@ -54,7 +54,8 @@ int StartP(const char* filePath)
 				fseek(fIn, -1, SEEK_CUR);
 			
 			//Expand argument list when out of space
-			if(lArgN >= iArgMax)
+			//+1 saving space for NULL termination
+			if(lArgN + 1 >= iArgMax)
 			{
 				int iOldMax = iArgMax;
 				char **pchOldList = pchArgList;
@@ -82,6 +83,7 @@ int StartP(const char* filePath)
 		}
 		SkipWhiteSpace(fIn);
 		SkipNewLine(fIn);
+		pchArgList[lArgN] = NULL;
 
 		//Add to list and start running program	
 		m_PidList[m_PCount] = fork();	
@@ -100,6 +102,8 @@ int StartP(const char* filePath)
 		int j;
 		for(j = 0; j < lArgN; j++)
 			free(pchArgList[j]);
+
+		usleep(100000);
 	}
 
 	fclose(fIn);
@@ -115,7 +119,10 @@ int main(int argc, const char* argv[])
 
 	int i, status;
 	for(i = 0; i < m_PCount; i++)
+	{
+		printf("main waiting: %d\n", i);
 		waitpid(m_PidList[i], &status, 0);
 
+	}
 	return 0;
 }

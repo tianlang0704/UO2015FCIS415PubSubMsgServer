@@ -5,8 +5,9 @@
 
 int main(int argc, const char* argv[])
 {
-	int i;
-	for(i = 0; i < 50; i++)
+	
+	int i, iCounter = atoi(argv[1]);
+	for(i = 0; i < iCounter; i++)
 	{
 		printf("%d\n", i);
 		usleep(10000);
