@@ -1,5 +1,5 @@
 P2: P2.c
-	gcc -o P2 P2.c
+	gcc -g -o P2 P2.c
 
 .Phony: clean
 

@@ -3,24 +3,44 @@
 #include <unistd.h>
 #include <string.h>
 #include <fcntl.h>
+#include <sys/poll.h>
 
 #define PUB_SEM "CIS415_P2_Pub_SEM"
 
-#define MAX_PUB 255
-#define MAX_SUB 255
+#define INIT_LIST_MAX 20
+#define MAX_TOPIC 20
 #define MAX_BUFF_LEN 255
+
+typedef struct
+{
+	int ctopFd[2];
+	int ptocFd[2];
+	int pid;
+	int topic[MAX_TOPIC];
+} ConRec;
+
+ConRec *m_PubList;
+int m_PubMax = INIT_LIST_MAX;
+int m_PubNum = 0;
+ConRec *m_SubList;
+int m_SubMax = INIT_LIST_MAX;
+int M_SubNum = 0;
+
 
 int ReadMessage(int readFd, char *out, int maxLen)
 {
-	perror("123123");
-	int index = 0;
-	while((index < maxLen - 1) && (read(readFd, out + index, 1) > 0))
-	{
-		perror("123123");
-		index++;
-	}
-	perror("321321");
-	//*TODO add error handling;
+	int index = 0, temp = 0;
+	char buff[255];
+	struct pollfd poFd = {readFd, POLLIN, 0};
+
+	sprintf(buff, "%d: in read message", getpid());
+	perror(buff);
+
+	poll(&poFd, 1 , -1);
+	index = read(readFd, out, maxLen);
+
+	sprintf(buff, "%d: after read message", getpid());
+	perror(buff);
 	out[index] = 0;
 	return index;
 }
@@ -28,21 +48,31 @@ int ReadMessage(int readFd, char *out, int maxLen)
 int SendMessage(int writeFd, const char *msg)
 {
 	int len = strlen(msg), res = 0;
+	char buff[255];
+	
+	sprintf(buff, "%d: in send mesesage", getpid());
+	perror(buff);
+	
 	res = write(writeFd, msg, len);
-	//close(dupFd);
-	close(writeFd);
+	
+	sprintf(buff, "%d: after send message", getpid());
+	perror(buff);
 	return res;
 }
 
-int SyncSendMessage(int pipefd[2], const char *msg, char *out, int maxLen)
+int SyncSendMessage(int readFd, 
+		    int writeFd, 
+		    const char *msg, 
+		    char *out, 
+		    int maxLen)
 {
-	SendMessage(pipefd[1], msg);
-	return ReadMessage(pipefd[0], out, maxLen);
+	SendMessage(writeFd, msg);
+	return ReadMessage(readFd, out, maxLen);
 }
 
 int Assert(const char* str1, const char *str2)
 {
-	if(str1 != str2)
+	if(strcmp(str1, str2) != 0)
 	{
 		char buff[MAX_BUFF_LEN];
 		sprintf(buff, "%d: failed assertion: %s, %s", 
@@ -53,56 +83,101 @@ int Assert(const char* str1, const char *str2)
 	return 0;
 }
 
-int Pub(int pipefd[2])
+int RunPub(int ctopFd[2], int ptocFd[2])
 {
 	char buff[MAX_BUFF_LEN];
-
+	int writeFd = ctopFd[1], readFd = ptocFd[0];
+	//child close child-to-parent read, it only writes to this
+	//and close parent-to-child write, it only reads from this
+	close(ctopFd[0]);
+	close(ptocFd[1]);
 	sprintf(buff, "pub %d connect", getpid());
-	SyncSendMessage(pipefd, buff, buff, MAX_BUFF_LEN);
+	SyncSendMessage(readFd, writeFd, buff, buff, MAX_BUFF_LEN);
 	Assert(buff, "accept");
 	sprintf(buff, "pub %d topic 1", getpid());
-	SyncSendMessage(pipefd, buff, buff, MAX_BUFF_LEN);
+	SyncSendMessage(readFd, writeFd, buff, buff, MAX_BUFF_LEN);
 	Assert(buff, "accept");
-	SendMessage(pipefd[1], "end");
+	SendMessage(ctopFd[1], "end");
+	return 0;
+}
+
+void AddConRec(ConRec **pList, int *ListNum, int *ListMax, ConRec *new)
+{
+	if((*pList) == NULL)
+	{
+		(*pList) = malloc(sizeof(ConRec) * (*ListMax));
+	}
+	else if((*ListNum) == (*ListMax))
+	{
+		(*ListMax) *= 2;
+		(*pList) = realloc((*pList), sizeof(ConRec) * (*ListMax));
+	}
+	
+	memcpy((*pList) + (*ListNum), new, sizeof(ConRec));
+	(*ListNum)++;
+}
+
+int SpawnChild(int num,
+	       ConRec **saveList,
+	       int *itemNum, 
+	       int *itemMax, 
+	       int (*fun) (int*, int*))
+{
+	int ctopFd[2], ptocFd[2];
+	char buff[250];
+	ConRec recBuff;
+
+	int i;
+	for(i = 0; i < num; i++)
+	{
+		if(pipe(ctopFd) < 0 || pipe(ptocFd) < 0)
+		{
+			perror("Error piping");
+			exit(EXIT_FAILURE);
+		}
+	
+		pid_t child = fork();
+		if(child < 0)
+		{
+			perror("Error forking");
+			exit(EXIT_FAILURE);
+		}
+		else if(child == 0)
+		{
+			sprintf(buff, "chlid %d pid: %d", i, getpid());
+			perror(buff);
+			sleep(1);
+			fun(ctopFd, ptocFd);
+			exit(0);
+		}
+		
+		close(ptocFd[0]);
+		close(ctopFd[1]);
+		memcpy(recBuff.ctopFd, ctopFd, 2 * sizeof(int));
+		memcpy(recBuff.ptocFd, ptocFd, 2 * sizeof(int));
+		AddConRec(saveList, itemNum, itemMax, &recBuff);
+	}
 }
 
 int main()
 {
-	int pipefd[2], oldFd;
 	char buff[MAX_BUFF_LEN] = {0};
 
-	if(pipe(pipefd) < 0)
-	{
-		perror("Error piping");
-		exit(EXIT_FAILURE);
-	}
+	sprintf(buff, "parent pid: %d", getpid());
+	perror(buff);
 
-	pid_t test = fork();
-	if(test < 0)
+	SpawnChild(3, &m_PubList, &m_PubNum, &m_PubMax, RunPub);
+	
+	while(ReadMessage(m_PubList[0].ctopFd[0], buff, MAX_BUFF_LEN))
 	{
-		perror("Error forking");
-		exit(EXIT_FAILURE);
-	}
-	else if(test == 0)
-	{
-		sleep(3);
-		write(pipefd[1], "hello", 5);
-		close(pipefd[1]);
-		//close(pipefd[0]);
-		//SendMessage(pipefd[1], "hello");
-		//Pub(pipefd);
-		exit(0);
-	}
-	oldFd = pipefd[1];
-	pipefd[1] = fcntl(oldFd, F_DUPFD, 0);
-	close(oldFd);
-	while(ReadMessage(pipefd[0], buff, MAX_BUFF_LEN))
-	{
-		perror(buff);
-		printf("Message received: %s", buff);
-		//SendMessage(pipefd[1], "accept");
+		char buff2[250];
+		sprintf(buff2, "Message received: %s", buff);
+		perror(buff2);
+		SendMessage(m_PubList[0].ptocFd[1], "accept");
 	}
 
 	//wait(-1, NULL, 0);
+	free(m_PubList);
+	free(m_SubList);
 	return 0;
 }
