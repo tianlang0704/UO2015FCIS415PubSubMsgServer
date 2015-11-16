@@ -17,7 +17,7 @@
 #define MAX_BUFF_LEN 255
 
 //helper function for freeing memories and setting their pointers to NULL
-void FreeMems(int num, ...);
+void FreeConRecLists(int num, ...);
 //helper function for returning the max of the two
 int Max(int a, int b);
 //helper function for asserting two strings are equal
@@ -26,9 +26,11 @@ int AssertStr(const char* str1, const char *str2);
 int CloseFD(int *pTargetFD);
 //helper function for closing the fd in a list of connection record
 int CloseList(ConRec *list, int num);
-//helper function for manipulating connection record list
+//helper functions for manipulating connection record list
 void AddConRec(ConRec **pList, int *ListNum, int *ListMax, ConRec *new);
-//helper function for manipulating connection record list
 void RemoveConRec(ConRec *list, int *listNum, ConRec *target);
-
+void EmptyConRec(ConRecListNum crlnTarget);
+//helper functions for manippulating topics
+void AddTopic(ConRec *target, int topic);
+void EmptyTopics(ConRec *target);
 #endif

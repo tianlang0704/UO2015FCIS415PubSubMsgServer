@@ -52,17 +52,17 @@ int SyncSendMessage(int readFD,
 //...:		Pointers to things to free after child execute *fun
 //return: the largest FD number of all chlidres'
 int SpawnChild(int num,
-	       ConRec **saveList,
-	       int *itemNum, 
-	       int *itemMax, 
+	       ConRecListNum crlnListNum,
 	       int (*fun) (int, int),
 	       int numFree,
 	       ...)
 {
 	int ctopFD[2], ptocFD[2], maxFD = 0;
-	char buff[250];
-	ConRec recBuff;
+	int *itemNum = crlnListNum.pNum;
+	int *itemMax = crlnListNum.pMax;
+	ConRec recBuff, **saveList = crlnListNum.pList;
 	va_list args;
+	char buff[250];
 
 	int i, j;
 	for(i = 0; i < num; i++)
@@ -93,20 +93,23 @@ int SpawnChild(int num,
 			//Child clean-up
 			CloseFD(ctopFD + 1);
 			CloseFD(ptocFD);
-			FreeMems(1, (*saveList));	
+			FreeConRecLists(1, crlnListNum);	
 			va_start(args, numFree);
 			for(j = 0; j < numFree; j++)
-				FreeMems(1, va_arg(args, void *));
+				FreeConRecLists(1, va_arg(args, ConRecListNum));
 			va_end(args);
 			exit(0);
 		}
 	
-		//Parent clean-up
+		//Parent clean-up, init, and record
 		CloseFD(ptocFD);
 		CloseFD(ctopFD + 1);
 		memcpy(recBuff.ctopFD, ctopFD, 2 * sizeof(int));
 		memcpy(recBuff.ptocFD, ptocFD, 2 * sizeof(int));
 		recBuff.pid = child;
+		recBuff.topicMax = 0;
+		recBuff.topicNum = 0;
+		recBuff.topic = NULL;
 		AddConRec(saveList, itemNum, itemMax, &recBuff);
 	}
 	return maxFD;
@@ -126,9 +129,9 @@ int PopulateFDSet(fd_set *set, int num, ...)
 		ConRecListNum crlnBuff = va_arg(args, ConRecListNum);
 		
 		int j;
-		for(j = 0; j < crlnBuff.num; j++)
+		for(j = 0; j < (*crlnBuff.pNum); j++)
 		{
-			FD_SET(crlnBuff.pList[j].ctopFD[0], set);
+			FD_SET((*crlnBuff.pList)[j].ctopFD[0], set);
 			count++;
 		}
 	}
@@ -142,7 +145,7 @@ int RunServer(ConRec **pPubList,
 	      ConRec **pSubList, 
 	      int *pPubNum, 
 	      int *pSubNum,
-	      int (*MsgHandler)(ConRec *, char *))
+	      int (*MsgHandler)(ConRec *, const char *))
 {	
 	fd_set rfds;	
 	int i, readFD = 0, res = 0, maxFD = 0;	
@@ -159,10 +162,10 @@ int RunServer(ConRec **pPubList,
 
 	while((*pPubNum) > 0 || (*pSubNum) > 0)
 	{
-		ConRecListNum crlnPub = {(*pPubNum), (*pPubList)};
-		ConRecListNum crlnSub = {(*pSubNum), (*pSubList)};
 		FD_ZERO(&rfds);
-		PopulateFDSet(&rfds, 2, crlnPub, crlnSub);
+		PopulateFDSet(&rfds, 2, 
+			      (ConRecListNum){pPubNum, NULL, pPubList}, 
+			      (ConRecListNum){pSubNum, NULL, pSubList});
 		res = select(maxFD + 1, &rfds, NULL, NULL, NULL);
 		sprintf(buff, "::::::::::::::res = %d", res);
 		perror(buff);

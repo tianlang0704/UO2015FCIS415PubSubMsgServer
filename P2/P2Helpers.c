@@ -8,21 +8,19 @@
 
 #include "P2Helpers.h"
 
-void FreeMems(int num, ...)
+#define INIT_TOPIC_NUM 10
+
+void FreeConRecLists(int num, ...)
 {
 	va_list args;
 	va_start(args, num);
-	void *target;
+	ConRecListNum crlnTarget;
 
 	int i;
 	for(i = 0; i < num; i++)
 	{
-		target = va_arg(args, void *);
-		if(target != NULL)
-		{
-			free(target);
-			target = NULL;
-		}
+		crlnTarget = va_arg(args, ConRecListNum);
+		EmptyConRec(crlnTarget);
 	}
 	va_end(args);
 }
@@ -69,20 +67,23 @@ int CloseList(ConRec *list, int num)
 }
 
 //helper function for manipulating record list
-void AddConRec(ConRec **pList, int *ListNum, int *ListMax, ConRec *new)
+void AddConRec(ConRec **pList, int *pListNum, int *pListMax, ConRec *new)
 {
+	if((*pListMax) == 0)
+			(*pListMax) = 10;
+
 	if((*pList) == NULL)
 	{
-		(*pList) = malloc(sizeof(ConRec) * (*ListMax));
+		(*pList) = malloc(sizeof(ConRec) * (*pListMax));
 	}
-	else if((*ListNum) == (*ListMax))
+	else if((*pListNum) == (*pListMax))
 	{
-		(*ListMax) *= 2;
-		(*pList) = realloc((*pList), sizeof(ConRec) * (*ListMax));
+		(*pListMax) *= 2;
+		(*pList) = realloc((*pList), sizeof(ConRec) * (*pListMax));
 	}
 	
-	memcpy((*pList) + (*ListNum), new, sizeof(ConRec));
-	(*ListNum)++;
+	memcpy((*pList) + (*pListNum), new, sizeof(ConRec));
+	(*pListNum)++;
 }
 
 //helper function for manipulating record list
@@ -97,6 +98,7 @@ void RemoveConRec(ConRec *list, int *listNum, ConRec *target)
 			perror(buff);
 			CloseFD(target->ctopFD);
 			CloseFD(target->ptocFD + 1);
+			EmptyTopics(target);
 			for(j = i; j < (*listNum) - 1; j++)
 				list[j] = list[j + 1];
 			(*listNum)--;
@@ -104,5 +106,47 @@ void RemoveConRec(ConRec *list, int *listNum, ConRec *target)
 		}
 }
 
+void EmptyConRec(ConRecListNum crlnTarget)
+{
+	int i;
+	if((*crlnTarget.pList) != NULL)
+	{
+		//Clean up topics
+		for(i = 0; i < (*crlnTarget.pNum); i++)
+			EmptyTopics((*crlnTarget.pList) + i);
+		//Clean up list
+		free(*crlnTarget.pList);
+		(*crlnTarget.pList) = NULL;
+		(*crlnTarget.pNum) = 0;
+		(*crlnTarget.pMax) = 0;
+	}
+}
 
+void AddTopic(ConRec *target, int topic)
+{
+	if(target->topicMax == 0)
+	{
+		target->topic = malloc(INIT_TOPIC_NUM * sizeof(int));
+		target->topicMax = INIT_TOPIC_NUM;
+	}
+	else if(target->topicMax == target->topicNum)
+	{
+		target->topicMax *= 2;
+		target->topic = realloc(target->topic, target->topicMax);
+	}
+	
+	target->topic[target->topicNum] = topic;
+	target->topicNum++;
+}
 
+void EmptyTopics(ConRec *target)
+{
+	if(target->topic != NULL)
+	{
+		free(target->topic);
+		target->topic = NULL;
+		target->topicNum = 0;
+		target->topicMax = 0;
+	}
+
+}

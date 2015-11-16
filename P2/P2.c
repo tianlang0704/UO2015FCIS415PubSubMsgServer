@@ -36,12 +36,17 @@ int SubMsgHandler(int readFD, int writeFD)
 }
 
 //ServerMessage handler
-int ServerMsgHandler(ConRec *target, char *msg)
+int ServerMsgHandler(ConRec *sender, const char *msg)
 {
-	char buff[250];
-	sprintf(buff, "Message received: %s", msg);
-	perror(buff);
-	return SendMessage(target->ptocFD[1], "accept");
+	char conType[10], infoType[10];
+	int topicBuff;
+	
+	sscanf(msg, "%s %*s %s %d", conType, infoType, &topicBuff);
+	if(strcmp(conType, "pub") == 0)
+		if(strcmp(infoType, "topic") == 0)
+			AddTopic(sender, topicBuff);
+	
+	return SendMessage(sender->ptocFD[1], "accept");
 }
 
 
@@ -59,13 +64,20 @@ int main()
 	sprintf(buff, "parent pid: %d", getpid());
 	perror(buff);
 	
-	SpawnChild(3, &pubList, &pubNum, &pubMax, PubMsgHandler, 2, pubList, subList);
-	SpawnChild(2, &subList, &subNum, &subMax, SubMsgHandler, 2, pubList, subList);
+	//SpawnChild args:number to spawn, list to save, msg handler, 
+	//                number to free, lists to free after child exe ...
+	SpawnChild(3, (ConRecListNum){&pubNum, &pubMax, &pubList}, PubMsgHandler, 
+		   2, (ConRecListNum){&pubNum, &pubMax, &pubList}, 
+		      (ConRecListNum){&subNum, &subMax, &subList});
+	SpawnChild(2, (ConRecListNum){&subNum, &subMax, &subList}, SubMsgHandler, 
+		   2, (ConRecListNum){&pubNum, &pubMax, &pubList}, 
+		      (ConRecListNum){&subNum, &subMax, &subList});
 	RunServer(&pubList, &subList, &pubNum, &subNum, ServerMsgHandler);
 
 	CloseList(pubList, pubNum);
 	CloseList(subList, subNum);
 
-	FreeMems(2, pubList, subList);
+	FreeConRecLists(2, (ConRecListNum){&pubNum, &pubMax, &pubList}, 
+		   	   (ConRecListNum){&subNum, &subMax, &subList});
 	return 0;
 }

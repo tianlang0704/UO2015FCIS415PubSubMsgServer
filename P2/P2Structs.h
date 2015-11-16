@@ -1,6 +1,5 @@
 #ifndef CIS415_P2_STRUCTS
 #define CIS415_P2_STRUCTS
-#define MAX_TOPIC_NUM 20
 
 #include <stdlib.h>
 
@@ -11,14 +10,16 @@ typedef struct
 	int ptocFD[2];
 	pid_t pid;
 	int topicNum;
-	int topic[MAX_TOPIC_NUM];
+	int topicMax;
+	int *topic;
 } ConRec;
 
-//Strct to track list and its current number in a whole
+//Strct to track list and its numbers in a whole
 typedef struct 
 {
-	int num;
-	ConRec *pList;
+	int *pNum;
+	int *pMax;
+	ConRec **pList;
 } ConRecListNum;
 
 #endif
