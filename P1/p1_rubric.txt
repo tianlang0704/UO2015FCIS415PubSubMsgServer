@@ -1,0 +1,46 @@
+CIS 415 - Fall 2015
+John Zhang
+Project 1
+
+-------------------------------------
+MCP - 90/100 
+
+  Part 1 - 30/40 
+  Part 2 - 10/20 
+  Part 3 - 30/30
+  Part 4 - 10/10
+  Part 5 - 10/0
+-------------------------------------
+
+  Part 1 - 30/40 Points
+    10/20 - parsing input
+        read from stdin instead of taking filename parameter
+    10/10 - fork(), exec(), wait()
+    10/10 - works for multiple programs
+
+    errors:
+
+-------------------------------------
+  Part 2 - 10/20 Points
+    0/10 - wait for SIGUSR1 before starting children
+    5/5 - restart children with SIGCONT
+    5/5 - stop children with SIGSTOP
+
+-------------------------------------
+  Part 3 - 30/30 Points
+    15/15 - correctly cycles through children
+    15/15 - doesn't allocate time to terminated processes
+
+    errors:
+
+-------------------------------------
+  Part 4 - 10/10 Points
+    10/10 - prints useful information 
+    
+    errors: 
+-------------------------------------
+  Part 5 - 10/0
+    More comments would be nice, but it seems to work.
+
+Graded by: Jeremy
+
