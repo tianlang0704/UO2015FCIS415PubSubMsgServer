@@ -52,15 +52,13 @@ int SyncSendMessage(int readFD,
 //...:		Pointers to things to free after child execute *fun
 //return: the largest FD number of all chlidres'
 int SpawnChild(int num,
-	       ConRecListNum crlnListNum,
+	       ConRecListNum crlnList,
 	       int (*fun) (int, int),
 	       int numFree,
 	       ...)
 {
 	int ctopFD[2], ptocFD[2], maxFD = 0;
-	int *itemNum = crlnListNum.pNum;
-	int *itemMax = crlnListNum.pMax;
-	ConRec recBuff, **saveList = crlnListNum.pList;
+	ConRec recBuff;
 	va_list args;
 	char buff[250];
 
@@ -93,7 +91,7 @@ int SpawnChild(int num,
 			//Child clean-up
 			CloseFD(ctopFD + 1);
 			CloseFD(ptocFD);
-			FreeConRecLists(1, crlnListNum);	
+			FreeConRecLists(1, crlnList);	
 			va_start(args, numFree);
 			for(j = 0; j < numFree; j++)
 				FreeConRecLists(1, va_arg(args, ConRecListNum));
@@ -110,7 +108,7 @@ int SpawnChild(int num,
 		recBuff.topicMax = 0;
 		recBuff.topicNum = 0;
 		recBuff.topic = NULL;
-		AddConRec(saveList, itemNum, itemMax, &recBuff);
+		AddConRec(crlnList, &recBuff);
 	}
 	return maxFD;
 }
@@ -209,20 +207,19 @@ int DispatchMessage(ConRecListNum crlnList, fd_set *rfds,
 
 int CleanUpList(ConRecListNum crlnList, fd_set *rfds)
 {
-	ConRec **pList = crlnList.pList;
-	int *pNum = crlnList.pNum;
+	ConRec *list = (*crlnList.pList);
+	int num = (*crlnList.pNum);
 
 	int i;
-	for(i = 0; i < (*pNum); i++)
-		if(FD_ISSET((*pList)[i].ctopFD[0], rfds))
-			RemoveConRec((*pList), pNum, (*pList) + i);
+	for(i = 0; i < num; i++)
+		if(FD_ISSET(list[i].ctopFD[0], rfds))
+			RemoveConRec(crlnList, list + i);
 }
 
 //Function for running server and running message loop
 int RunServer(ConRecListNum crlnPub,
 	      ConRecListNum crlnSub,
-	      int (*MsgHandler)(ConRec *, const char *),
-	      SyncMode serverMode)
+	      int (*MsgHandler)(ConRec *, const char *));
 {	
 	ConRec **pPubList = crlnPub.pList;
 	ConRec **pSubList = crlnSub.pList; 

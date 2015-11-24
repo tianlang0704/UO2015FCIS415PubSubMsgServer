@@ -26,6 +26,6 @@ int CleanUpList(ConRecListNum crlnList, fd_set *rfds);
 int SpawnChild(int num, ConRecListNum crlnListNum, int (*fun) (int, int), 
 	       int numFree, ...);
 int RunServer(ConRecListNum crlnPub, ConRecListNum crlnSub,
-	      int (*MsgHandler)(ConRec *, const char *), SyncMode serverMode);
+	      int (*MsgHandler)(ConRec *, const char *));
 
 #endif

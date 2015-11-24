@@ -17,6 +17,7 @@
 #define MAX_BUFF_LEN 255
 
 //helper function for freeing memories and setting their pointers to NULL
+//It takes ConRecListNum.
 void FreeConRecLists(int num, ...);
 //helper function for returning the max of the two
 int Max(int a, int b);
@@ -27,8 +28,8 @@ int CloseFD(int *pTargetFD);
 //helper function for closing the fd in a list of connection record
 int CloseList(ConRec *list, int num);
 //helper functions for manipulating connection record list
-void AddConRec(ConRec **pList, int *ListNum, int *ListMax, ConRec *new);
-void RemoveConRec(ConRec *list, int *listNum, ConRec *target);
+void AddConRec(ConRecListNum crlnList, ConRec *new);		
+void RemoveConRec(ConRecListNum crlnList, ConRec *target);
 void EmptyConRec(ConRecListNum crlnTarget);
 //helper functions for manippulating topics
 void AddTopic(ConRec *target, int topic);

@@ -67,8 +67,12 @@ int CloseList(ConRec *list, int num)
 }
 
 //helper function for manipulating record list
-void AddConRec(ConRec **pList, int *pListNum, int *pListMax, ConRec *new)
+void AddConRec(ConRecListNum crlnList, ConRec *new)		
 {
+	ConRec **pList = crlnList.pList;
+	int *pListNum = crlnList.pNum;
+	int *pListMax = crlnList.pMax;
+
 	if((*pListMax) == 0)
 			(*pListMax) = 10;
 
@@ -87,8 +91,11 @@ void AddConRec(ConRec **pList, int *pListNum, int *pListMax, ConRec *new)
 }
 
 //helper function for manipulating record list
-void RemoveConRec(ConRec *list, int *listNum, ConRec *target)
+void RemoveConRec(ConRecListNum crlnList, ConRec *target)
 {
+	ConRec *list = (*crlnList.pList);
+	int *listNum = crlnList.pNum;
+
 	int i, j;
 	for(i = 0; i < (*listNum); i++)
 		if(list + i == target)
@@ -155,7 +162,7 @@ int WaitForChildren()
 {
 	int stat;
 	while(wait(&stat) != -1 )
-		if(stat == 0)
+		if(WIFEXITED(stat) == 0)
 			return -1;
 
 	return 0;
