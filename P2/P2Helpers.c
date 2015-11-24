@@ -150,3 +150,13 @@ void EmptyTopics(ConRec *target)
 	}
 
 }
+
+int WaitForChildren()
+{
+	int stat;
+	while(wait(&stat) != -1 )
+		if(stat == 0)
+			return -1;
+
+	return 0;
+}

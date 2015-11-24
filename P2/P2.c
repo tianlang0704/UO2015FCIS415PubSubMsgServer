@@ -56,28 +56,25 @@ int main()
 	ConRec *pubList = NULL;
 	int pubMax = INIT_LIST_MAX;
 	int pubNum = 0;
+	ConRecListNum crlnPub = {&pubNum, &pubMax, &pubList};
 	ConRec *subList = NULL;
 	int subMax = INIT_LIST_MAX;
 	int subNum = 0;
+	ConRecListNum crlnSub = {&subNum, &subMax, &subList}; 
 
 	char buff[MAX_BUFF_LEN] = {0};
 	sprintf(buff, "parent pid: %d", getpid());
 	perror(buff);
 	
 	//SpawnChild args:number to spawn, list to save, msg handler, 
-	//                number to free, lists to free after child exe ...
-	SpawnChild(3, (ConRecListNum){&pubNum, &pubMax, &pubList}, PubMsgHandler, 
-		   2, (ConRecListNum){&pubNum, &pubMax, &pubList}, 
-		      (ConRecListNum){&subNum, &subMax, &subList});
-	SpawnChild(2, (ConRecListNum){&subNum, &subMax, &subList}, SubMsgHandler, 
-		   2, (ConRecListNum){&pubNum, &pubMax, &pubList}, 
-		      (ConRecListNum){&subNum, &subMax, &subList});
-	RunServer(&pubList, &subList, &pubNum, &subNum, ServerMsgHandler);
+	//                number of list to free, lists to free after child exe 
+	SpawnChild(3, crlnPub, PubMsgHandler, 2, crlnPub, crlnSub);
+	SpawnChild(2, crlnSub, SubMsgHandler, 2, crlnPub, crlnSub);
+	RunServer(crlnPub, crlnSub, ServerMsgHandler, SYNC);
 
+	WaitForChildren();
 	CloseList(pubList, pubNum);
 	CloseList(subList, subNum);
-
-	FreeConRecLists(2, (ConRecListNum){&pubNum, &pubMax, &pubList}, 
-		   	   (ConRecListNum){&subNum, &subMax, &subList});
+	FreeConRecLists(2, crlnPub, crlnSub);
 	return 0;
 }

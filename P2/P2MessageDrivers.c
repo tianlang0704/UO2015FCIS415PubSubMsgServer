@@ -117,10 +117,10 @@ int SpawnChild(int num,
 
 //Helper function for populating file description set for select function
 //to use to detect ready pipe
-int PopulateFDSet(fd_set *set, int num, ...)
+int AppendFDSet(fd_set *set, int num, ...)
 {
 	va_list args;
-	va_start (args, num);
+	va_start(args, num);
 	int count = 0;
 	
 	int i;
@@ -140,74 +140,110 @@ int PopulateFDSet(fd_set *set, int num, ...)
 	return count;
 }
 
-//Function for running server and run message loop
-int RunServer(ConRec **pPubList, 
-	      ConRec **pSubList, 
-	      int *pPubNum, 
-	      int *pSubNum,
-	      int (*MsgHandler)(ConRec *, const char *))
+int WaitForMessage(int targetFD)
 {	
-	fd_set rfds;	
-	int i, readFD = 0, res = 0, maxFD = 0;	
-	char buff[MAX_BUFF_LEN] = {0};
+	fd_set rfds;
+	FD_ZERO(&rfds);
+	FD_SET(targetFD, &rfds);
 
-	for(i = 0; i < (*pPubNum); i++)
-		maxFD = Max(maxFD,
-			   Max(Max((*pPubList)[i].ctopFD[0], (*pPubList)[i].ctopFD[1]), 
-			       Max((*pPubList)[i].ptocFD[0], (*pPubList)[i].ptocFD[1])));
-	for(i = 0; i < (*pSubNum); i++)
-		maxFD = Max(maxFD,
-			   Max(Max((*pSubList)[i].ctopFD[0], (*pSubList)[i].ctopFD[1]), 
-			       Max((*pSubList)[i].ptocFD[0], (*pSubList)[i].ptocFD[1])));
+	return select(targetFD + 1, &rfds, NULL, NULL, NULL);
+}
 
-	while((*pPubNum) > 0 || (*pSubNum) > 0)
+int WaitForMessageLists(fd_set *rfds, int num, ...)
+{	
+	FD_ZERO(rfds);
+	va_list args;
+	va_start(args, num); 
+	int maxFD = 0;
+
+	int i, j;
+	for(i = 0; i < num; i++)
 	{
-		FD_ZERO(&rfds);
-		PopulateFDSet(&rfds, 2, 
-			      (ConRecListNum){pPubNum, NULL, pPubList}, 
-			      (ConRecListNum){pSubNum, NULL, pSubList});
-		res = select(maxFD + 1, &rfds, NULL, NULL, NULL);
-		sprintf(buff, "::::::::::::::res = %d", res);
-		perror(buff);
-		if(res > 0)
-		{
-			for(i = 0; i < (*pPubNum); i++)
-			{
-				readFD = (*pPubList)[i].ctopFD[0];
-				sprintf(buff, "readFD = %d", readFD);
-				perror(buff);
-				if(FD_ISSET(readFD, &rfds))
-				{
-					if(ReadMessage(readFD, buff, MAX_BUFF_LEN) > 0)
-						MsgHandler((*pPubList) + i, 
-								     buff);
-					else
-						RemoveConRec((*pPubList), 
-							     pPubNum,
-							     (*pPubList) + i);
-				}
-			}
+		ConRecListNum crlnList = va_arg(args, ConRecListNum);
+		ConRec **pList = crlnList.pList;
+		int *pNum = crlnList.pNum;
 
-			for(i = 0; i < (*pSubNum); i++)
-			{
-				readFD = (*pSubList)[i].ctopFD[0];
-				if(FD_ISSET(readFD, &rfds))
-				{
-					if(ReadMessage(readFD, buff, MAX_BUFF_LEN) > 0)
-						MsgHandler((*pSubList) + i, 
-								     buff);
-					else
-						RemoveConRec((*pSubList),
-							     pSubNum,
-							     (*pSubList) + i);
-				}
-			}
-		}
-		else
+		for(j = 0; j < (*pNum); j++)
+			maxFD = Max(maxFD,
+			   	Max(Max((*pList)[j].ctopFD[0], (*pList)[j].ctopFD[1]), 
+				    Max((*pList)[j].ptocFD[0], (*pList)[j].ptocFD[1])));
+	
+		AppendFDSet(rfds, 1, crlnList);
+	}
+	va_end(args);
+
+	return select(maxFD + 1, rfds, NULL, NULL, NULL);
+}
+
+int DispatchMessage(ConRecListNum crlnList, fd_set *rfds, 
+		     int (*MsgHandler)(ConRec *, const char *))
+{
+	char msg[MAX_BUFF_LEN];
+	ConRec **pList = crlnList.pList;
+	int *pNum = crlnList.pNum;
+	int readFD, failCounter = 0;
+
+	int i;
+	for(i = 0; i < (*pNum); i++)
+	{
+		readFD = (*pList)[i].ctopFD[0];
+		char buff[MAX_BUFF_LEN];
+		sprintf(buff, "readFD = %d", readFD);
+		perror(buff);
+		if(FD_ISSET(readFD, rfds))
 		{
-			return -1;
+			if(ReadMessage(readFD, msg, MAX_BUFF_LEN) > 0)
+			{
+				MsgHandler((*pList) + i, msg);
+				FD_CLR(readFD, rfds);
+			}
+			else
+			{
+				failCounter++;
+			}
 		}
 	}
 
+	return failCounter;
+}
+
+int CleanUpList(ConRecListNum crlnList, fd_set *rfds)
+{
+	ConRec **pList = crlnList.pList;
+	int *pNum = crlnList.pNum;
+
+	int i;
+	for(i = 0; i < (*pNum); i++)
+		if(FD_ISSET((*pList)[i].ctopFD[0], rfds))
+			RemoveConRec((*pList), pNum, (*pList) + i);
+}
+
+//Function for running server and running message loop
+int RunServer(ConRecListNum crlnPub,
+	      ConRecListNum crlnSub,
+	      int (*MsgHandler)(ConRec *, const char *),
+	      SyncMode serverMode)
+{	
+	ConRec **pPubList = crlnPub.pList;
+	ConRec **pSubList = crlnSub.pList; 
+	int *pPubNum = crlnPub.pNum;
+	int *pSubNum = crlnSub.pNum;
+	int i, readFD = 0, res = 0, maxFD = 0;	
+	char buff[MAX_BUFF_LEN] = {0};
+
+	while((*pPubNum) > 0 || (*pSubNum) > 0)
+	{
+		fd_set rfds;
+		if(WaitForMessageLists(&rfds, 2, crlnPub, crlnSub) < 0)
+			return -1;
+
+		sprintf(buff, "::::::::::::::res = %d", res);
+		perror(buff);
+
+		DispatchMessage(crlnPub, &rfds, MsgHandler);
+		CleanUpList(crlnPub, &rfds);
+		DispatchMessage(crlnSub, &rfds, MsgHandler);
+		CleanUpList(crlnSub, &rfds);
+	}
 	return 0;
 }

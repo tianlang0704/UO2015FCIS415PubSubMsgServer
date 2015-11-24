@@ -17,8 +17,15 @@ int ReadMessage(int readFD, char *out, int maxLen);
 int SendMessage(int writeFD, const char *msg);
 int SyncSendMessage(int readFD, int writeFD, const char *msg, char *out, int maxLen);
 //Helper function for spawning children and message drivers
+int AppendFDSet(fd_set *set, int num, ...);
+int WaitForMessage(int targetFD);
+int WaitForMessageLists(fd_set *rfds, int num, ...);
+int DispatchMessage(ConRecListNum crlnList, fd_set *rfds, 
+		    int (*MsgHandler)(ConRec *, const char *));
+int CleanUpList(ConRecListNum crlnList, fd_set *rfds);
 int SpawnChild(int num, ConRecListNum crlnListNum, int (*fun) (int, int), 
 	       int numFree, ...);
-int RunServer(ConRec **pPubList, ConRec **pSubList, int *pPubNum, int *pSubNum, 
-	      int (*MsgHandler)(ConRec *, const char *));
+int RunServer(ConRecListNum crlnPub, ConRecListNum crlnSub,
+	      int (*MsgHandler)(ConRec *, const char *), SyncMode serverMode);
+
 #endif

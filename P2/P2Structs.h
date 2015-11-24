@@ -22,4 +22,6 @@ typedef struct
 	ConRec **pList;
 } ConRecListNum;
 
+typedef enum {SYNC, ASYNC} SyncMode;
+
 #endif
