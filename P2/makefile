@@ -1,18 +1,20 @@
-P2: P2.o P2Helpers.o P2MessageDrivers.o
-	gcc -g -o P2 P2.o P2Helpers.o P2MessageDrivers.o
-	rm *.o
+CC	:= gcc
+CFLAGS	:= -g
+OFLAGS	:= -g
+LIBS	:= -pthread 
+SRCS	:= $(wildcard *.c)
+OBJS	:= $(SRCS:.c=.o)
+EXEC	:= P2
 
-P2.o: P2.c
-	gcc -g -o P2.o -c P2.c
 
-P2Helpers.o: P2Helpers.c
-	gcc -g -o P2Helpers.o -c P2Helpers.c
+$(EXEC): $(OBJS)
+	$(CC) $(CFLAGS) -o $(EXEC) $(OBJS) $(LIBS)
+	rm -f *.o
 
-P2MessageDrivers.o: P2MessageDrivers.c
-	gcc -g -o P2MessageDrivers.o -c P2MessageDrivers.c
+%.o: %.c
+	$(CC) $(OFLAGS) -o $@ -c $<
 
 .Phony: clean
 
 clean:
-	rm *.o
-	rm P2
+	rm -f $(OBJS) $(EXEC)

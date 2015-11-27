@@ -7,40 +7,7 @@
 //==========================================================================
 #include "P2MessageDrivers.h"
 
-int ReadMessage(int readFD, char *out, int maxLen)
-{
-	int res = 0;
-	struct pollfd poFD = {readFD, POLLIN, 0};
 
-	poll(&poFD, 1 , -1);
-	res = read(readFD, out, maxLen);
-
-	out[res] = 0;
-	return res;
-}
-
-int SendMessage(int writeFD, const char *msg)
-{
-	int len = strlen(msg), res = 0;
-	struct sigaction OriginalAct;
-
-	sigaction(SIGPIPE, NULL, &OriginalAct);
-	signal(SIGPIPE, SIG_IGN);
-	res = write(writeFD, msg, len);
-	sigaction(SIGPIPE, &OriginalAct, NULL);
-	
-	return res;
-}
-
-int SyncSendMessage(int readFD, 
-		    int writeFD, 
-		    const char *msg, 
-		    char *out, 
-		    int maxLen)
-{
-	SendMessage(writeFD, msg);
-	return ReadMessage(readFD, out, maxLen);
-}
 
 //Helper function for spawning children
 //num: 		The number of children to spawn
@@ -94,7 +61,10 @@ int SpawnChild(int num,
 			FreeConRecLists(1, crlnList);	
 			va_start(args, numFree);
 			for(j = 0; j < numFree; j++)
-				FreeConRecLists(1, va_arg(args, ConRecListNum));
+			{
+				FunArg fa = va_arg(args, FunArg);
+				fa.fun(fa.arg);
+			}
 			va_end(args);
 			exit(0);
 		}
@@ -102,12 +72,7 @@ int SpawnChild(int num,
 		//Parent clean-up, init, and record
 		CloseFD(ptocFD);
 		CloseFD(ctopFD + 1);
-		memcpy(recBuff.ctopFD, ctopFD, 2 * sizeof(int));
-		memcpy(recBuff.ptocFD, ptocFD, 2 * sizeof(int));
-		recBuff.pid = child;
-		recBuff.topicMax = 0;
-		recBuff.topicNum = 0;
-		recBuff.topic = NULL;
+		InitConRec(&recBuff, ctopFD, ptocFD, child, 0, 0, NULL, DISCONNECTED);
 		AddConRec(crlnList, &recBuff);
 	}
 	return maxFD;
@@ -115,11 +80,13 @@ int SpawnChild(int num,
 
 //Helper function for populating file description set for select function
 //to use to detect ready pipe
-int AppendFDSet(fd_set *set, int num, ...)
+//it takes ConRecListNum to add the whole list of ctopFD[0] to set
+//returns the largest fd number added.
+int AppendctopFDReadToSet(fd_set *set, fd_set *exc, int num, ...)
 {
 	va_list args;
 	va_start(args, num);
-	int count = 0;
+	int fdMax = 0;
 	
 	int i;
 	for(i = 0; i < num; i++)
@@ -129,52 +96,33 @@ int AppendFDSet(fd_set *set, int num, ...)
 		int j;
 		for(j = 0; j < (*crlnBuff.pNum); j++)
 		{
-			FD_SET((*crlnBuff.pList)[j].ctopFD[0], set);
-			count++;
+			int target = (*crlnBuff.pList)[j].ctopFD[0];
+			if(!FD_ISSET(target, exc))
+			{
+				FD_SET(target, set);
+				fdMax = Max(fdMax, target);
+			}
 		}
 	}
 
 	va_end(args);
-	return count;
+	return fdMax;
 }
 
-int WaitForMessage(int targetFD)
-{	
-	fd_set rfds;
-	FD_ZERO(&rfds);
-	FD_SET(targetFD, &rfds);
-
-	return select(targetFD + 1, &rfds, NULL, NULL, NULL);
-}
-
-int WaitForMessageLists(fd_set *rfds, int num, ...)
-{	
-	FD_ZERO(rfds);
-	va_list args;
-	va_start(args, num); 
-	int maxFD = 0;
-
-	int i, j;
+int AppendConnectedctopFDReadToSet(ConRecListNum crlnList, fd_set *set)
+{
+	int num = (*crlnList.pNum);
+	ConRec *list = *crlnList.pList;
+	int i;
 	for(i = 0; i < num; i++)
-	{
-		ConRecListNum crlnList = va_arg(args, ConRecListNum);
-		ConRec **pList = crlnList.pList;
-		int *pNum = crlnList.pNum;
+		if(list[i].conStatus == CONNECTED)
+			FD_SET(list[i].ctopFD[0], set);
 
-		for(j = 0; j < (*pNum); j++)
-			maxFD = Max(maxFD,
-			   	Max(Max((*pList)[j].ctopFD[0], (*pList)[j].ctopFD[1]), 
-				    Max((*pList)[j].ptocFD[0], (*pList)[j].ptocFD[1])));
-	
-		AppendFDSet(rfds, 1, crlnList);
-	}
-	va_end(args);
-
-	return select(maxFD + 1, rfds, NULL, NULL, NULL);
+	return 0;
 }
 
-int DispatchMessage(ConRecListNum crlnList, fd_set *rfds, 
-		     int (*MsgHandler)(ConRec *, const char *))
+int DispatchMessage(ConRecListNum crlnList, fd_set *rfds, MsgNode *msgRec,
+		     int (*MsgHandler)(ConRec *, char *))
 {
 	char msg[MAX_BUFF_LEN];
 	ConRec **pList = crlnList.pList;
@@ -185,15 +133,15 @@ int DispatchMessage(ConRecListNum crlnList, fd_set *rfds,
 	for(i = 0; i < (*pNum); i++)
 	{
 		readFD = (*pList)[i].ctopFD[0];
-		char buff[MAX_BUFF_LEN];
-		sprintf(buff, "readFD = %d", readFD);
-		perror(buff);
 		if(FD_ISSET(readFD, rfds))
 		{
 			if(ReadMessage(readFD, msg, MAX_BUFF_LEN) > 0)
 			{
-				MsgHandler((*pList) + i, msg);
-				FD_CLR(readFD, rfds);
+				char *storedMsg = InsertMsg(msgRec, msg);
+				if (MsgHandler((*pList) + i, storedMsg) != -1)
+					FD_CLR(readFD, rfds);
+				else
+					failCounter++;
 			}
 			else
 			{
@@ -205,42 +153,43 @@ int DispatchMessage(ConRecListNum crlnList, fd_set *rfds,
 	return failCounter;
 }
 
-int CleanUpList(ConRecListNum crlnList, fd_set *rfds)
-{
-	ConRec *list = (*crlnList.pList);
-	int num = (*crlnList.pNum);
-
-	int i;
-	for(i = 0; i < num; i++)
-		if(FD_ISSET(list[i].ctopFD[0], rfds))
-			RemoveConRec(crlnList, list + i);
-}
-
 //Function for running server and running message loop
 int RunServer(ConRecListNum crlnPub,
 	      ConRecListNum crlnSub,
-	      int (*MsgHandler)(ConRec *, const char *));
+	      int (*MsgHandler)(ConRec *, char *))
 {	
-	ConRec **pPubList = crlnPub.pList;
-	ConRec **pSubList = crlnSub.pList; 
-	int *pPubNum = crlnPub.pNum;
-	int *pSubNum = crlnSub.pNum;
 	int i, readFD = 0, res = 0, maxFD = 0;	
 	char buff[MAX_BUFF_LEN] = {0};
+	MsgNode *msgRec = InitMsgList();
 
-	while((*pPubNum) > 0 || (*pSubNum) > 0)
+	while(CountDiscon(crlnPub) > 0 || CountDiscon(crlnSub) > 0)
 	{
+		sprintf(buff, "pub discount = %d, sub discount = %d", 
+				CountDiscon(crlnPub),
+				CountDiscon(crlnSub));
+		perror(buff);
+
 		fd_set rfds;
-		if(WaitForMessageLists(&rfds, 2, crlnPub, crlnSub) < 0)
+		fd_set efds;
+		FD_ZERO(&rfds);
+		FD_ZERO(&efds);
+
+		AppendConnectedctopFDReadToSet(crlnPub, &efds);
+		AppendConnectedctopFDReadToSet(crlnSub, &efds);
+		if((res = WaitForMessageLists(&rfds, &efds, 2, crlnPub, crlnSub)) < 0)
 			return -1;
 
 		sprintf(buff, "::::::::::::::res = %d", res);
 		perror(buff);
 
-		DispatchMessage(crlnPub, &rfds, MsgHandler);
+		DispatchMessage(crlnPub, &rfds, msgRec, MsgHandler);
 		CleanUpList(crlnPub, &rfds);
-		DispatchMessage(crlnSub, &rfds, MsgHandler);
+		DispatchMessage(crlnSub, &rfds, msgRec, MsgHandler);
 		CleanUpList(crlnSub, &rfds);
 	}
+	perror("Out of RunServer");
+
+	WaitForChildren();
+	UnInitMsgList(msgRec);
 	return 0;
 }
