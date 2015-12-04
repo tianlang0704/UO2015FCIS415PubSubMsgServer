@@ -6,7 +6,7 @@ Archived messages will be write to the same directory with topic# as their file 
 ================================SETTINGS========================================
 Several settings can be adjusted under the Adjustable section in the "P2Settings.h" file.
 
-
+pub message sending interval is set to 1 by default, can be 0.
 ================================Files===========================================
 makefile 	
 	makefile?
