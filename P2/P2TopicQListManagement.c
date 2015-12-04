@@ -1,7 +1,10 @@
 #include "P2TopicQListManagement.h"
 
+Arch m_arch;
+
 TopicQ *InitTopicQList()
 {
+    InitArch(&m_arch, ARCH_BUFF_SIZE);
 	return NULL;
 }
 
@@ -14,6 +17,7 @@ void UnInitTopicQList(void *qList)
 		nextList = curList->next;
 		UnInitTopicQ(curList);
 	}
+	UnInitArch(&m_arch);
 }
 
 TopicQ *FindTopicQ(TopicQ *qList, int topicID)
@@ -111,7 +115,7 @@ TopicEntry *Enq(TopicQ **pQList, int topicID, int pubID, char data[ENTRYSIZE])
 
 TopicEntry *Deq(TopicQ **pQList, int topicID, ConRec * sub, int timeOut)
 {
-    pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+    static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
     pthread_mutex_lock(&lock);
 
 	TopicQ *tempQ = FindTopicQ((*pQList), topicID);
@@ -123,24 +127,28 @@ TopicEntry *Deq(TopicQ **pQList, int topicID, ConRec * sub, int timeOut)
 		return NULL;
 
     pthread_mutex_lock(&tempQ->accessLock);
-    TopicEntry **pCurEntry = &curSub->entry;
 	int timeNow = time(NULL);
 	//Skip all the old messages
+	TopicEntry **pCurEntry = &curSub->entry;
 	while((*pCurEntry) != NULL && (*pCurEntry)->timeStamp + timeOut < timeNow)
 	{
 		(*pCurEntry)->deqCount++;
-		if(tempQ->subCount - (*pCurEntry)->deqCount < 1)
-		{
-			//*TODO: move to buffer
-			perror("===================MOVE TO BUFFER!!!");
-			tempQ->entryCount--;
-		}
-
 		(*pCurEntry) = (*pCurEntry)->next;
+	}
+
+	//check if there is any finished old entries
+	TopicEntry *checkEntry = tempQ->entries;
+	while(checkEntry != NULL && checkEntry != (*pCurEntry))
+	{
+        if(tempQ->subCount - checkEntry->deqCount < 1)
+			AppendToArch(&m_arch, RemoveEntry(tempQ, checkEntry)); //writting to archive buffer
+
+		checkEntry = checkEntry->next;
 	}
 
 	if((*pCurEntry) != NULL)
 	{
+        (*pCurEntry)->deqCount++;
         TopicEntry *resEntry = (*pCurEntry);
         (*pCurEntry) = (*pCurEntry)->next;
         pthread_mutex_unlock(&tempQ->accessLock);

@@ -13,9 +13,10 @@
 #include <pthread.h>
 #include <sys/wait.h>
 #include "P2Structs.h"
+#include "P2Settings.h"
 
-#define MAX_BUFF_LEN 255
-
+//helper function for thread safe printing
+void print(char *str);
 //helper function for returning the max of the two
 int Max(int a, int b);
 //helper function for asserting two strings are equal

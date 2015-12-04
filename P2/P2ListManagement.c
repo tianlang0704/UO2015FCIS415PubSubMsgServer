@@ -44,9 +44,6 @@ void RemoveConRec(ConRecListNum crlnList, ConRec *target)
 	for(i = 0; i < (*listNum); i++)
 		if(list + i == target)
 		{
-			char buff[MAX_BUFF_LEN];
-			sprintf(buff, "removing %d", target->pid);
-			perror(buff);
 			CloseFD(target->ctopFD);
 			CloseFD(target->ptocFD + 1);
 			sem_destroy(&target->newEntry);

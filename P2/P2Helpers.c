@@ -8,6 +8,14 @@
 
 #include "P2Helpers.h"
 
+void print(char *str)
+{
+    static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+    pthread_mutex_lock(&lock);
+    fprintf(stdout, "%s\n", str);
+    pthread_mutex_unlock(&lock);
+}
+
 int Max(int a, int b)
 {
 	return a > b ? a : b;

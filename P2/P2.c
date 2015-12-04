@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include "P2Settings.h"
 #include "P2Structs.h"
 #include "P2Helpers.h"
 #include "P2MessageDrivers.h"
@@ -9,24 +10,11 @@
 #include "P2TopicQManagement.h"
 #include "P2TopicQListManagement.h"
 
-
-#define MESSAGE_TIMEOUT 0
-#define INIT_LIST_MAX 20
-#define MSG_PUB_IDENTIFIER  "pub"
-#define MSG_SUB_IDENTIFIER  "sub"
-#define MSG_SUB_RECEIVING   "receiving messages"
-#define MSG_TOPIC           "topic"
-#define MSG_CONNECT         "connect"
-#define MSG_ACCEPT          "accept"
-#define MSG_SUCCESS         "success"
-#define MSG_RETRY           "retry"
-#define MSG_TERMINATE       "terminate"
-#define MSG_TOPIC_BROADCAST 0
-
 ThreadInfo *m_ThreadList;
 TopicQ *m_TopicStore;
 int m_TopicNum;
 
+//Pub process action script
 int PubMsgHandler(pid_t pidPub, int readFD, int writeFD)
 {
 	char msg[MAX_BUFF_LEN];
@@ -37,7 +25,7 @@ int PubMsgHandler(pid_t pidPub, int readFD, int writeFD)
     int i;
     for(i = 0; i < m_TopicNum; i++)
     {
-        sleep(1);
+        sleep(MESSAGE_SENDING_INTERVAL);
         sprintf(msg, "topic %d pub:%d,sendtime:%d", i + 1, getpid(), (int)time(NULL));
         do{
         SyncSendMessage(readFD, writeFD, msg, msg, MAX_BUFF_LEN);
@@ -49,6 +37,7 @@ int PubMsgHandler(pid_t pidPub, int readFD, int writeFD)
 	return 0;
 }
 
+//Sub process action script
 int SubMsgHandler(pid_t pidSub, int readFD, int writeFD)
 {
 	char msg[MAX_BUFF_LEN];
@@ -74,13 +63,14 @@ int SubMsgHandler(pid_t pidSub, int readFD, int writeFD)
     while(ReadMessage(readFD, msg, MAX_BUFF_LEN) && strcmp(msg, MSG_TERMINATE) != 0)
     {
         sprintf(buff, "Sub %d: %s", pidSub, msg);
-        perror(buff);
+        print(buff);
         SendMessage(writeFD, MSG_SUCCESS);
     }
 
 	return 0;
 }
 
+//Pub thread proxy action script
 void *PubThreadHandler(void *arg)
 {
 	ListConRec *listCR = arg;
@@ -118,6 +108,7 @@ void *PubThreadHandler(void *arg)
 	pthread_exit(0);
 }
 
+//Sub thread proxy action script
 void *SubThreadHandler(void *arg)
 {
 	ListConRec *listCR = arg;
@@ -174,7 +165,7 @@ void *SubThreadHandler(void *arg)
 	pthread_exit(0);
 }
 
-//ServerMessage handler
+//Server thread spawnder script
 int ServerMsgHandler(ConRecListNum crlnList, ConRec *sender, char *msg)
 {
 	char senderType[10], infoType[10];
@@ -202,6 +193,7 @@ int ServerMsgHandler(ConRecListNum crlnList, ConRec *sender, char *msg)
 	return SendMessage(sender->ptocFD[1], MSG_ACCEPT);
 }
 
+//
 int main(int argc, char**argv)
 {
 	m_ThreadList = InitThreadInfoList();
@@ -218,7 +210,7 @@ int main(int argc, char**argv)
 
 	char buff[MAX_BUFF_LEN] = {0};
 	sprintf(buff, "parent pid: %d", getpid());
-	perror(buff);
+	print(buff);
 
 	//SpawnChild args:number to spawn, list to save, msg handler,
 	//                number of uninit functions to call,
@@ -233,8 +225,10 @@ int main(int argc, char**argv)
 		   (FunArg){EmptyConRec, &crlnSub},
 		   (FunArg){UnInitThreadInfoList, m_ThreadList},
 		   (FunArg){UnInitTopicQList, m_TopicStore});
+    //Start server
 	RunServer(crlnPub, crlnSub, ServerMsgHandler);
 
+    //Clean up everything
 	CloseList(pubList, pubNum);
 	CloseList(subList, subNum);
 	FreeConRecLists(2, crlnPub, crlnSub);

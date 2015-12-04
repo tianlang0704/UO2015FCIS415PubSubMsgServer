@@ -4,8 +4,6 @@
 //==========================================================================
 #include "P2TopicQManagement.h"
 
-#define INIT_TOPIC_NUM 10
-
 TopicQ *InitTopicQ(int topicID)
 {
 	TopicQ *tempQ = malloc(sizeof(TopicQ)); // Dealloc in UnInit
@@ -23,14 +21,8 @@ void UnInitTopicQ(TopicQ *q)
 {
 	if(q != NULL)
 	{
-		TopicEntry *curEntry, *nextEntry = q->entries;
-		while(nextEntry != NULL)
-		{
-			curEntry = nextEntry;
-			nextEntry = curEntry->next;
-			free(curEntry);
-			curEntry = NULL;
-		}
+
+		FreeEntries(q->entries);
 		q->entries = NULL;
 
 		SubEntry *curTracker, *nextTracker = q->subTracker;
@@ -48,6 +40,18 @@ void UnInitTopicQ(TopicQ *q)
 	}
 }
 
+void FreeEntries(TopicEntry *entryList)
+{
+		TopicEntry *curEntry, *nextEntry = entryList;
+		while(nextEntry != NULL)
+		{
+			curEntry = nextEntry;
+			nextEntry = curEntry->next;
+			free(curEntry);
+			curEntry = NULL;
+		}
+}
+
 void UpdateSubTracker(TopicQ *q, TopicEntry *entry)
 {
 	SubEntry *cur = q->subTracker;
@@ -58,6 +62,17 @@ void UpdateSubTracker(TopicQ *q, TopicEntry *entry)
 			cur->entry = entry;
 			sem_post(&cur->sub->newEntry);
         }
+		cur = cur->next;
+	}
+}
+
+void ShiftSubTracker(TopicQ *q, TopicEntry *entry)
+{
+	SubEntry *cur = q->subTracker;
+	while(cur != NULL)
+	{
+		if(cur->entry != NULL && cur->entry == entry)
+			cur->entry = cur->entry->next;
 		cur = cur->next;
 	}
 }
@@ -73,6 +88,7 @@ TopicEntry *AppendEntry(TopicQ *q, int pubID, char data[ENTRYSIZE])
 	temp->tail = temp;
 	temp->timeStamp = time(NULL);
 	temp->pubID = pubID;
+	temp->topicID = q->topicID;
 	memcpy(temp->data, data, ENTRYSIZE * sizeof(char));
 	if(q->entries == NULL)
 	{
@@ -118,15 +134,24 @@ TopicEntry *RemoveEntry(TopicQ *q, TopicEntry *entry)
     if(FindEntry(q, entry) == NULL)
         return NULL;
 
+    q->entryCount--;
+    ShiftSubTracker(q, entry);
     if(q->entries->head == entry)
     {
-        TopicEntry *oldHead = q->entries;
+        TopicEntry *oldHead = entry;
         TopicEntry *newHead = oldHead->next;
-        newHead->head = newHead;
-        newHead->tail = oldHead->tail;
-        newHead->prev = NULL;
+        if(newHead != NULL)
+        {
+            newHead->head = newHead;
+            newHead->tail = oldHead->tail;
+            newHead->prev = NULL;
+        }
         q->entries = newHead;
-        return oldHead;
+    }
+    else if(q->entries->tail == entry)
+    {
+        q->entries->tail = entry->prev;
+        q->entries->tail->next = NULL;
     }
     else
     {
@@ -134,8 +159,9 @@ TopicEntry *RemoveEntry(TopicQ *q, TopicEntry *entry)
         TopicEntry *next = entry->next;
         prev->next = entry->next;
         next->prev = entry->prev;
-        return entry;
     }
+
+    return entry;
 }
 
 

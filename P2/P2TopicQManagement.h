@@ -5,9 +5,7 @@
 #include <time.h>
 #include <string.h>
 #include "P2Structs.h"
-
-#define ENTRYSIZE 250
-#define MAXENTRIES 50
+#include "P2Settings.h"
 
 typedef struct TopicEntryTag
 {
@@ -17,6 +15,7 @@ typedef struct TopicEntryTag
 	struct TopicEntryTag *next;
 	int timeStamp;
 	int pubID;
+	int topicID;
 	int deqCount;
 	char data[ENTRYSIZE];
 } TopicEntry;
@@ -47,8 +46,12 @@ typedef struct TopicQTag
 //helper functions for caching the topics
 TopicQ 	*InitTopicQ(int topicID);
 void 	UnInitTopicQ(TopicQ *q);
+void    FreeEntries(TopicEntry *entryList);
 void 	UpdateSubTracker(TopicQ *q, TopicEntry *entry);
-SubEntry *FindSubTracker(SubEntry *subTracker, ConRec *sub);
+void    ShiftSubTracker(TopicQ *q, TopicEntry *entry);
 TopicEntry *AppendEntry(TopicQ *q, int pubID, char data[ENTRYSIZE]);
+TopicEntry *FindEntry(TopicQ *q, TopicEntry *entry);
+TopicEntry *RemoveEntry(TopicQ *q, TopicEntry *entry);
+SubEntry *FindSubTracker(SubEntry *subTracker, ConRec *sub);
 
 #endif

@@ -1,7 +1,9 @@
 #ifndef CIS415_P2_TopicQListManagement
 #define CIS415_P2_TopicQListManagement
 
+#include "P2Settings.h"
 #include "P2TopicQManagement.h"
+#include "P2ArchManagement.h"
 
 TopicQ 	*InitTopicQList();
 void 	UnInitTopicQList(void *qList);

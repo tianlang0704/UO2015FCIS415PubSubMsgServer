@@ -47,8 +47,8 @@ int SpawnChild(int num,
 		}
 		else if(child == 0)
 		{
-			sprintf(buff, "chlid %d pid: %d", i, getpid());
-			perror(buff);
+			sprintf(buff, "chlid pid: %d", getpid());
+			print(buff);
 			CloseFD(ctopFD);
 			CloseFD(ptocFD + 1);
 			msgHandler(getpid(), ptocFD[0], ctopFD[1]);
@@ -122,7 +122,7 @@ int RunServer(ConRecListNum crlnPub,
 		sprintf(buff, "pub discount = %d, sub discount = %d",
 				CountDiscon(crlnPub),
 				CountDiscon(crlnSub));
-		perror(buff);
+		print(buff);
 
 		fd_set rfds;    //disconnected fds to wait on
 		fd_set efds;    //exceptions/connected to not wait on
@@ -135,7 +135,7 @@ int RunServer(ConRecListNum crlnPub,
 			return -1;
 
 		sprintf(buff, "::::::::::::::connecting = %d::::::::::::::", res);
-		perror(buff);
+		print(buff);
 
 		DispatchMessage(crlnPub, &rfds, msgRec, MsgHandler);
 		CleanUpList(crlnPub, &rfds);

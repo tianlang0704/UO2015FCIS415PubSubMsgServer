@@ -1,12 +1,23 @@
-Files:
+================================How to use======================================
+/ATP [pub number] [sub number] [topic number]
+
+Archived messages will be write to the same directory with topic# as their file names.
+
+================================SETTINGS========================================
+Several settings can be adjusted under the Adjustable section in the "P2Settings.h" file.
+
+
+================================Files===========================================
 makefile 	
 	makefile?
-P2.c/.h		
+P2.c		
 	main driver program and the message handlers
-P2Helpers.c/.h
-	helper functions for convenience
+P2Settings.h
+	contains different settings for the program
 P2Structs.h
 	contains definitions of structs for convenience
+P2Helpers.c/.h
+	helper functions for convenience
 P2ListManagement.c/.h
 	functions for manipulating record list of connected pub and sub
 P2MessageDrivers.c/.h
@@ -19,8 +30,6 @@ P2TopicQListManagement.c/.h
 	functions for managing the main topic queue list and enq/deq operations 
 P2TopicQManagement.c/.h
 	functions for managing topic queues and insert/delete operations.
-
-
-
-
+P2ArchManagement.c/.h
+	functions for managing the archive and insertion/writing operations.
 
