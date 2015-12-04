@@ -77,18 +77,19 @@ int SendMessage(int writeFD, const char *msg)
 	int len = strlen(msg), res = 0;
 	struct sigaction OriginalAct;
 
+    //*TODO: check before sending message.
 	sigaction(SIGPIPE, NULL, &OriginalAct);
 	signal(SIGPIPE, SIG_IGN);
 	res = write(writeFD, msg, len);
 	sigaction(SIGPIPE, &OriginalAct, NULL);
-	
+
 	return res;
 }
 
-int SyncSendMessage(int readFD, 
-		    int writeFD, 
-		    const char *msg, 
-		    char *out, 
+int SyncSendMessage(int readFD,
+		    int writeFD,
+		    const char *msg,
+		    char *out,
 		    int maxLen)
 {
 	SendMessage(writeFD, msg);
@@ -96,7 +97,7 @@ int SyncSendMessage(int readFD,
 }
 
 int WaitForMessage(int targetFD)
-{	
+{
 	fd_set rfds;
 	FD_ZERO(&rfds);
 	FD_SET(targetFD, &rfds);
@@ -105,13 +106,13 @@ int WaitForMessage(int targetFD)
 }
 
 int WaitForMessageLists(fd_set *rfds, fd_set *exc, int num, ...)
-{	
+{
 	FD_ZERO(rfds);
 	va_list args;
-	va_start(args, num); 
+	va_start(args, num);
 	int fdMax = 0;
 
-	int i, j;
+	int i;
 	for(i = 0; i < num; i++)
 	{
 		ConRecListNum crlnList = va_arg(args, ConRecListNum);

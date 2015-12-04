@@ -9,6 +9,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <pthread.h>
+#include <sys/wait.h>
 #include "P2Structs.h"
 
 #define MAX_BUFF_LEN 255
@@ -23,5 +26,11 @@ int CloseFD(int *pTargetFD);
 int WaitForChildren();
 //helper function for counting disconnected item in the ConRec list
 int CountDiscon(ConRecListNum crlnList);
+int CountCon(ConRecListNum crlnList);
+//helper function to check if all ConRec in the list is disconnected
+int SyncDisconnect(ConRecListNum crlnList, ConRec *pConRec);
+//helper function for fd set
+int AppendctopFDReadToSet(fd_set *set, fd_set *exc, int num, ...);
+int AppendConnectedctopFDReadToSet(ConRecListNum crlnList, fd_set *set);
 
 #endif

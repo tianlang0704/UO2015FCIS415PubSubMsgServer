@@ -1,25 +1,17 @@
 #include "P2ListManagement.h"
 
-int InitConRec(ConRec* rec, 
-	       int *ctopFD, 
-	       int *ptocFD,
-	       pid_t pid,
-	       int num,
-	       int max,
-	       int *topic,
-	       Status conStatus)
+int InitConRec(ConRec* rec, int *ctopFD, int *ptocFD, pid_t pid, Status conStatus)
 {
 	memcpy(rec->ctopFD, ctopFD, 2 * sizeof(int));
 	memcpy(rec->ptocFD, ptocFD, 2 * sizeof(int));
 	rec->pid = pid;
-	rec->topicMax = max;
-	rec->topicNum = num;
-	rec->topic = topic;
 	rec->conStatus = conStatus;
+	sem_init(&rec->newEntry, 0, 0);
+	return 0;
 }
 
 //helper function for manipulating record list
-void AddConRec(ConRecListNum crlnList, ConRec *new)		
+void AddConRec(ConRecListNum crlnList, ConRec *new)
 {
 	ConRec **pList = crlnList.pList;
 	int *pListNum = crlnList.pNum;
@@ -37,7 +29,7 @@ void AddConRec(ConRecListNum crlnList, ConRec *new)
 		(*pListMax) *= 2;
 		(*pList) = realloc((*pList), sizeof(ConRec) * (*pListMax));
 	}
-	
+
 	memcpy((*pList) + (*pListNum), new, sizeof(ConRec));
 	(*pListNum)++;
 }
@@ -57,7 +49,7 @@ void RemoveConRec(ConRecListNum crlnList, ConRec *target)
 			perror(buff);
 			CloseFD(target->ctopFD);
 			CloseFD(target->ptocFD + 1);
-			EmptyTopics(target);
+			sem_destroy(&target->newEntry);
 			for(j = i; j < (*listNum) - 1; j++)
 				list[j] = list[j + 1];
 			(*listNum)--;
@@ -69,12 +61,15 @@ void EmptyConRec(void *pcrlnTarget)
 {
 	ConRecListNum crlnTarget = (*(ConRecListNum *)pcrlnTarget);
 
-	int i;
 	if((*crlnTarget.pList) != NULL)
 	{
-		//Clean up topics
+		//Clean up new topic indicator
+		int i;
 		for(i = 0; i < (*crlnTarget.pNum); i++)
-			EmptyTopics((*crlnTarget.pList) + i);
+		{
+			ConRec *tempCR = (*crlnTarget.pList) + i;
+			sem_destroy(&tempCR->newEntry);
+        }
 		//Clean up list
 		free(*crlnTarget.pList);
 		(*crlnTarget.pList) = NULL;
@@ -113,9 +108,9 @@ int CleanUpList(ConRecListNum crlnList, fd_set *rfds)
 	return 0;
 }
 
-int CloseList(ConRec *list, int num)
+void CloseList(ConRec *list, int num)
 {
-	int i, res = -1;
+	int i;
 	for(i = 0; i < num; i++)
 	{
 		CloseFD(list[i].ctopFD);

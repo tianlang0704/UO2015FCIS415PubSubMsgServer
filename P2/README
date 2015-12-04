@@ -1,0 +1,26 @@
+Files:
+makefile 	
+	makefile?
+P2.c/.h		
+	main driver program and the message handlers
+P2Helpers.c/.h
+	helper functions for convenience
+P2Structs.h
+	contains definitions of structs for convenience
+P2ListManagement.c/.h
+	functions for manipulating record list of connected pub and sub
+P2MessageDrivers.c/.h
+	funcitons for spawning threads and deliver messages to message handlers
+P2MessageManagement.c/.h
+	functions for storing, managing, reading and writing messages.
+P2ThreadManagement.c/.h
+	functions for storing and manipulating thread information.
+P2TopicQListManagement.c/.h
+	functions for managing the main topic queue list and enq/deq operations 
+P2TopicQManagement.c/.h
+	functions for managing topic queues and insert/delete operations.
+
+
+
+
+

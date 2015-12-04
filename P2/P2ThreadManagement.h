@@ -21,6 +21,6 @@ typedef struct ThreadInfoTag
 ThreadInfo *InitThreadInfoList();
 void UnInitThreadInfoList(void *head);
 ThreadInfo *InsertThreadInfo(ThreadInfo *head, pthread_t tid, void *arg, int argSize);
-int SpawnThread(ThreadInfo *tList, void *(*ThreadFun)(void *), ConRecMsg senderMsg);
+int SpawnThread(ThreadInfo *tList, void *(*ThreadFun)(void *), ListConRec listCR);
 
 #endif

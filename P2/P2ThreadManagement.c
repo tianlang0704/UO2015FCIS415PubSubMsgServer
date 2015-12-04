@@ -52,11 +52,8 @@ ThreadInfo *InsertThreadInfo(ThreadInfo *head, pthread_t tid, void *arg, int arg
 	return temp;
 }
 
-int SpawnThread(ThreadInfo *tList, void *(*ThreadFun)(void *), ConRecMsg senderMsg)
+int SpawnThread(ThreadInfo *tList, void *(*ThreadFun)(void *), ListConRec listCR)
 {
-	perror("In SpawnThread!!!!!!!");
-	ThreadInfo *storedInfo = InsertThreadInfo(tList, 
-			0, &senderMsg, sizeof(ConRecMsg));
-	pthread_t tid;
-	pthread_create(&storedInfo->tid, NULL, ThreadFun, storedInfo->arg);
+	ThreadInfo *storedInfo = InsertThreadInfo(tList, 0, &listCR, sizeof(listCR));
+	return pthread_create(&storedInfo->tid, NULL, ThreadFun, storedInfo->arg);
 }

@@ -4,7 +4,7 @@ OFLAGS	:= -g
 LIBS	:= -pthread 
 SRCS	:= $(wildcard *.c)
 OBJS	:= $(SRCS:.c=.o)
-EXEC	:= P2
+EXEC	:= ATP
 
 
 $(EXEC): $(OBJS)
