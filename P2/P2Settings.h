@@ -2,8 +2,10 @@
 #define CIS415_P2_Settings
 
 //Adjustable settings
+//#define VERBOSE
 #define MESSAGE_TIMEOUT 0
 #define MESSAGE_SENDING_INTERVAL 1
+#define MESSAGE_RECEIVING_INTERVAL 0
 #define ARCH_BUFF_SIZE 5
 #define MAXENTRIES 50
 

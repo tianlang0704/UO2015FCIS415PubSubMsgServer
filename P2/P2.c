@@ -19,6 +19,7 @@ int PubMsgHandler(pid_t pidPub, int readFD, int writeFD)
 {
 	char msg[MAX_BUFF_LEN];
 	sprintf(msg, "pub %d connect", getpid());
+	print(msg);
 	SyncSendMessage(readFD, writeFD, msg, msg, MAX_BUFF_LEN);
 	AssertStr(msg, MSG_ACCEPT);
 
@@ -27,6 +28,7 @@ int PubMsgHandler(pid_t pidPub, int readFD, int writeFD)
     {
         sleep(MESSAGE_SENDING_INTERVAL);
         sprintf(msg, "topic %d pub:%d,sendtime:%d", i + 1, getpid(), (int)time(NULL));
+        print(msg);
         do{
         SyncSendMessage(readFD, writeFD, msg, msg, MAX_BUFF_LEN);
         }while(strcmp(msg, MSG_ACCEPT) != 0);
@@ -44,6 +46,7 @@ int SubMsgHandler(pid_t pidSub, int readFD, int writeFD)
 	char buff[MAX_BUFF_LEN];
 
 	sprintf(msg, "sub %d connect", getpid());
+	print(msg);
 	SyncSendMessage(readFD, writeFD, msg, msg, MAX_BUFF_LEN);
 	AssertStr(msg, MSG_ACCEPT);
 
@@ -52,6 +55,9 @@ int SubMsgHandler(pid_t pidSub, int readFD, int writeFD)
     for(i = 0; i < topicNum - 1; i++)
     {
         sprintf(msg, "sub %d topic %d", getpid(), i + 1);
+#ifdef VERBOSE
+        print(msg);
+#endif
         SyncSendMessage(readFD, writeFD, msg, msg, MAX_BUFF_LEN);
         AssertStr(msg, MSG_ACCEPT);
     }
@@ -62,9 +68,10 @@ int SubMsgHandler(pid_t pidSub, int readFD, int writeFD)
     SendMessage(writeFD, MSG_SUB_RECEIVING);
     while(ReadMessage(readFD, msg, MAX_BUFF_LEN) && strcmp(msg, MSG_TERMINATE) != 0)
     {
-        sprintf(buff, "Sub %d: %s", pidSub, msg);
+        sprintf(buff, "Sub %d: %s, receivetime:%d", pidSub, msg, (int)time(NULL));
         print(buff);
         SendMessage(writeFD, MSG_SUCCESS);
+        sleep(MESSAGE_RECEIVING_INTERVAL);
     }
 
 	return 0;
@@ -92,7 +99,11 @@ void *PubThreadHandler(void *arg)
 		if(strcmp(buff, MSG_TOPIC) == 0)    //dealing with sending topic
 		{
             sscanf(msg, "%*s %d %s", &topicID, content);
-
+#ifdef VERBOSE
+            sprintf(buff, "pub %d enqueuing entry, topicID: %d, content: %s",
+                    senderID, topicID, content);
+            print(buff);
+#endif
             if(Enq(&m_TopicStore, topicID, senderID, content) != NULL)
                 SendMessage(writeFD, MSG_ACCEPT);
             else
@@ -103,7 +114,12 @@ void *PubThreadHandler(void *arg)
 	}
 
     if(SyncDisconnect(crlnList, listCR->pConRec) == 0)
-       Enq(&m_TopicStore, MSG_TOPIC_BROADCAST, senderID, MSG_TERMINATE);
+    {
+#ifdef VERBOSE
+        print("boread casting termination message.");
+#endif
+        Enq(&m_TopicStore, MSG_TOPIC_BROADCAST, senderID, MSG_TERMINATE);
+    }
 
 	pthread_exit(0);
 }
@@ -142,10 +158,14 @@ void *SubThreadHandler(void *arg)
     {
         while(WaitForTopics(m_TopicStore, listCR->pConRec, &topicID) > -1)
         {
-            //sleep(1);
             TopicEntry *tempEntry = Deq(&m_TopicStore, topicID, listCR->pConRec, MESSAGE_TIMEOUT);
             if(tempEntry != NULL)
             {
+#ifdef VERBOSE
+                sprintf(buff, "sub %d dequeuing entry, topicID: %d, content: %s",
+                        listCR->pConRec->pid, topicID, tempEntry->data);
+                print(buff);
+#endif
                 if(strcmp(tempEntry->data, MSG_TERMINATE) == 0)
                 {
                 //break the waiting loop if termination message is received
@@ -187,13 +207,16 @@ int ServerMsgHandler(ConRecListNum crlnList, ConRec *sender, char *msg)
         {
             sender->conStatus = CONNECTED;
             SpawnThread(m_ThreadList, SubThreadHandler, (ListConRec){crlnList, sender});
+
         }
 	}
 
+    char buff[MAX_BUFF_LEN];
+    sprintf(buff, "child %d connected and proxy thread created", sender->pid);
+    print(buff);
 	return SendMessage(sender->ptocFD[1], MSG_ACCEPT);
 }
 
-//
 int main(int argc, char**argv)
 {
 	m_ThreadList = InitThreadInfoList();
@@ -209,7 +232,7 @@ int main(int argc, char**argv)
 	ConRecListNum crlnSub = {&subNum, &subMax, &subList};
 
 	char buff[MAX_BUFF_LEN] = {0};
-	sprintf(buff, "parent pid: %d", getpid());
+	sprintf(buff, "main process start, pid: %d", getpid());
 	print(buff);
 
 	//SpawnChild args:number to spawn, list to save, msg handler,

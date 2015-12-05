@@ -13,6 +13,7 @@ void print(char *str)
     static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
     pthread_mutex_lock(&lock);
     fprintf(stdout, "%s\n", str);
+    fflush(stdout);
     pthread_mutex_unlock(&lock);
 }
 

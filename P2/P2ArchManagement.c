@@ -32,6 +32,9 @@ TopicEntry *AppendToArch(Arch *arch, TopicEntry *entry)
         arch->buff.buffCur = (*arch->buff.buffCur) == arch->buff.buff1 ? &arch->buff.buff2 : &arch->buff.buff1;
         arch->itemNum = 0;
         pthread_mutex_unlock(&arch->buff.switchLock);
+#ifdef VERBOSE
+                print("=============buffer switching===========");
+#endif
         sem_post(&arch->waitLock);
     }
 
@@ -58,26 +61,30 @@ TopicEntry *AppendToArch(Arch *arch, TopicEntry *entry)
     return entry;
 }
 
-void WriteToFile(TopicEntry *buff)
+void WriteToFile(TopicEntry *entry)
 {
-    TopicEntry *cur = buff;
+    TopicEntry *cur = entry;
     while(cur != NULL)
     {
-	if(cur->data != NULL)
-	{
-	        char fileName[FILENAME_MAX];
-	        sprintf(fileName, "topic%d", cur->topicID);
-	        FILE *fileW = fopen(fileName, "a");
-	        fprintf(fileW, "%s\n", cur->data);
-	        fclose(fileW);
-	        cur = cur->next;
-	}
+        if(cur->data != NULL)
+        {
+                char fileName[FILENAME_MAX];
+                sprintf(fileName, "topic%d", cur->topicID);
+                FILE *fileW = fopen(fileName, "a");
+                fprintf(fileW, "%s\n", cur->data);
+                fclose(fileW);
+#ifdef VERBOSE
+                char strBuff[MAX_BUFF_LEN];
+                sprintf(strBuff, "writting entry to filename \"%s\": %s", fileName, cur->data);
+                print(strBuff);
+#endif
+                cur = cur->next;
+        }
     }
 }
 
 void *ArchFun(void *arg)
 {
-
     Arch *arch = arg;
     while(sem_wait(&arch->waitLock) > -1 && arch->terminateIndicator == 0)
     {

@@ -47,7 +47,7 @@ int SpawnChild(int num,
 		}
 		else if(child == 0)
 		{
-			sprintf(buff, "chlid pid: %d", getpid());
+			sprintf(buff, "spawing chlid process, pid: %d", getpid());
 			print(buff);
 			CloseFD(ctopFD);
 			CloseFD(ptocFD + 1);
@@ -119,7 +119,7 @@ int RunServer(ConRecListNum crlnPub,
 
 	while(CountDiscon(crlnPub) > 0 || CountDiscon(crlnSub) > 0)
 	{
-		sprintf(buff, "pub discount = %d, sub discount = %d",
+		sprintf(buff, "still waiting on pub num: %d, sub num: %d",
 				CountDiscon(crlnPub),
 				CountDiscon(crlnSub));
 		print(buff);
@@ -134,7 +134,7 @@ int RunServer(ConRecListNum crlnPub,
 		if((res = WaitForMessageLists(&rfds, &efds, 2, crlnPub, crlnSub)) < 0)
 			return -1;
 
-		sprintf(buff, "::::::::::::::connecting = %d::::::::::::::", res);
+		sprintf(buff, "::::::::::::::%d connetion reqrest received::::::::::::::", res);
 		print(buff);
 
 		DispatchMessage(crlnPub, &rfds, msgRec, MsgHandler);

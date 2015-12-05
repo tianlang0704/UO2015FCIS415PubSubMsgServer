@@ -1,12 +1,18 @@
 ================================How to use======================================
 /ATP [pub number] [sub number] [topic number]
 
-Archived messages will be write to the same directory with topic# as their file names.
+================================Strategy========================================
+!!!!!!!!!!!!!!!!!!!!ATTENTION!!!!!!!!!!!!!!!!!!!!!
+All subs are intentionally only subscribing to t-1 topics leaving the last one unsubbed when t is larger than 1.
+When t is less than 1, all subs are subscribing to topic 1 only.
+Otherwise nothing special.
 
+All pubs are publishing to all topics for 1 to t.
 ================================SETTINGS========================================
 Several settings can be adjusted under the Adjustable section in the "P2Settings.h" file.
 
-pub message sending interval is set to 1 by default, can be 0.
+pub message sending interval is set to 1 by default.
+sub message receiving interval is set to 0 by default.
 ================================Files===========================================
 makefile 	
 	makefile?
@@ -32,4 +38,43 @@ P2TopicQManagement.c/.h
 	functions for managing topic queues and insert/delete operations.
 P2ArchManagement.c/.h
 	functions for managing the archive and insertion/writing operations.
+
+================================Outputs=========================================
+Verbose mode can be turned on in the P2Settings.h file by uncommenting
+#define VERBOSE
+
+-----------------------------Part1-----------------------------------------
+	//when main process spawns child process
+spawing chlid process, pid: [pid]
+	//when child process try to connect to main process:
+sub %d connect
+pub %d connect
+	//when server is run and every time after connection established:
+still waiting on pub num: [number], sub num: [number]
+	//when server receives child's connection request:
+::::::::::::::[number of] connetion reqrest received::::::::::::::
+	
+	
+-----------------------------Part2-----------------------------------------
+	//when connetion is established and proxy thread is created:
+child [pid] connected and proxy thread created
+
+-----------------------------Part3-----------------------------------------
+	//In verbose mode, when enqueuing and dequeuing
+pub [pid] enqueuing entry, topicID: [num], content: [content]
+sub [pid] dequeuing entry, topicID: [num], content: [content]
+
+-----------------------------Part4-----------------------------------------
+Archived messages will be write to the same directory with topic# as their file names.
+	//In verbose mode, when archive thread is writting to the file
+writting entry to filename "[file name]": [content]
+	//in verbose mode, when one buff is full and switching to the other buff.
+=============buffer switching===========
+
+-----------------------------Part5-----------------------------------------
+	//when pub send an entry to a topic
+topic [num] pub:[pid],sendtime:[timestamp]
+
+-----------------------------Part6-----------------------------------------
+Hurray!!!!!! It's alive!!!!!!
 
