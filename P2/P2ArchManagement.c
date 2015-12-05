@@ -13,7 +13,8 @@ void InitArch(Arch *arch, int buffSize)
 void UnInitArch(Arch *arch)
 {
     pthread_mutex_lock(&arch->buff.switchLock);
-    FreeEntries((*arch->buff.buffCur));
+    if((*arch->buff.buffCur) != NULL)
+    	FreeEntries((*arch->buff.buffCur));
     pthread_mutex_unlock(&arch->buff.switchLock);
     pthread_mutex_destroy(&arch->buff.switchLock);
     arch->terminateIndicator = -1;
@@ -62,12 +63,15 @@ void WriteToFile(TopicEntry *buff)
     TopicEntry *cur = buff;
     while(cur != NULL)
     {
-        char fileName[FILENAME_MAX];
-        sprintf(fileName, "topic%d", cur->topicID);
-        FILE *fileW = fopen(fileName, "a");
-        fprintf(fileW, "%s\n", cur->data);
-        fclose(fileW);
-        cur = cur->next;
+	if(cur->data != NULL)
+	{
+	        char fileName[FILENAME_MAX];
+	        sprintf(fileName, "topic%d", cur->topicID);
+	        FILE *fileW = fopen(fileName, "a");
+	        fprintf(fileW, "%s\n", cur->data);
+	        fclose(fileW);
+	        cur = cur->next;
+	}
     }
 }
 
@@ -85,7 +89,7 @@ void *ArchFun(void *arg)
         pthread_mutex_unlock(&arch->buff.switchLock);
     }
 
-    if((*arch->buff.buffCur) != NULL)
-        WriteToFile((*arch->buff.buffCur));
+//    if((*arch->buff.buffCur) != NULL)
+//        WriteToFile((*arch->buff.buffCur));
     return NULL;
 }
